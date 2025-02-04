@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
 import { Input } from './ui/input';
+import { Select } from './ui/select';
 import Papa from 'papaparse';
 import _ from 'lodash';
 import { Upload, Download, Check, Search, ArrowUpDown } from 'lucide-react';
@@ -38,6 +39,7 @@ const CrowdStrikeAnalyzer: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [downloadSuccess, setDownloadSuccess] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [selectedSource, setSelectedSource] = useState<string>('');
   const [sortConfig, setSortConfig] = useState<SortConfig>({ 
     key: 'freq (30days)', 
     direction: 'desc' 
@@ -97,13 +99,52 @@ const CrowdStrikeAnalyzer: React.FC = () => {
   };
 
   // Memoized filtered and sorted results
+  // Get unique sources with IP and hostname mapping
+  const uniqueSources = useMemo(() => {
+    if (!results) return [];
+    
+    // Create a map of IPs to their hostnames
+    const sourceMap = new Map<string, Set<string>>();
+    
+    results.forEach(row => {
+      const ip = row.IP;
+      const hostname = row['Source Name'];
+      if (!sourceMap.has(ip)) {
+        sourceMap.set(ip, new Set());
+      }
+      if (hostname) {
+        sourceMap.get(ip)?.add(hostname);
+      }
+    });
+
+    // Convert map to array of source options
+    return Array.from(sourceMap.entries())
+      .map(([ip, hostnames]) => {
+        const hostnameList = Array.from(hostnames);
+        return {
+          value: ip,
+          label: hostnameList.length > 0 
+            ? `${ip} (${hostnameList.join(', ')})`
+            : ip
+        };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [results]);
+
   const filteredAndSortedResults = useMemo(() => {
     if (!results) return [];
 
     let filtered = results;
+    
+    // Apply source filter
+    if (selectedSource) {
+      filtered = filtered.filter(row => row.IP === selectedSource);
+    }
+
+    // Apply search filter
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
-      filtered = results.filter(row => 
+      filtered = filtered.filter(row => 
         row.Source.toLowerCase().includes(searchLower) ||
         row.Target.toLowerCase().includes(searchLower) ||
         row['Source Name'].toLowerCase().includes(searchLower) ||
@@ -113,7 +154,7 @@ const CrowdStrikeAnalyzer: React.FC = () => {
     }
 
     return _.orderBy(filtered, [sortConfig.key], [sortConfig.direction]);
-  }, [results, searchTerm, sortConfig]);
+  }, [results, searchTerm, selectedSource, sortConfig]);
 
   const handleSort = (key: keyof ProcessedRow) => {
     setSortConfig(current => ({
@@ -223,8 +264,8 @@ const CrowdStrikeAnalyzer: React.FC = () => {
                 </button>
               </div>
 
-              {/* Search Input */}
-              <div className="flex items-center gap-2">
+              {/* Search and Filter Controls */}
+              <div className="flex items-center gap-4">
                 <div className="relative flex-1">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
                   <Input
@@ -234,6 +275,19 @@ const CrowdStrikeAnalyzer: React.FC = () => {
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
                     className="pl-8"
                   />
+                </div>
+                <div className="w-64">
+                  <Select
+                    value={selectedSource}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedSource(e.target.value)}
+                  >
+                    <option value="">All Sources</option>
+                    {uniqueSources.map((source) => (
+                      <option key={source.value} value={source.value}>
+                        {source.label}
+                      </option>
+                    ))}
+                  </Select>
                 </div>
               </div>
 
