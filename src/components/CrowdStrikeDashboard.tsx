@@ -20,7 +20,7 @@ interface DashboardProps {
     Service: string;
     Target: string;
     Time: string;
-    'freq (30days)': number;
+    freq: number;
   }>;
 }
 
@@ -51,7 +51,7 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
       const hostnames = new Set(entries.map(e => e['Source Name']));
       const services = new Set(entries.map(e => e.Service));
       const targets = new Set(entries.map(e => e.Target));
-      const totalEvents = _.sumBy(entries, 'freq (30days)');
+      const totalEvents = _.sumBy(entries, 'freq');
       
       return {
         ip,
@@ -73,7 +73,7 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
       .map(([source, entries]) => ({
         source,
         count: entries.length,
-        totalFreq: _.sumBy(entries, 'freq (30days)')
+        totalFreq: _.sumBy(entries, 'freq')
       }))
       .sort((a, b) => b.totalFreq - a.totalFreq)
       .slice(0, 5);
@@ -86,7 +86,7 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
       .map(([timePattern, entries]) => ({
         timePattern,
         count: entries.length,
-        totalFreq: _.sumBy(entries, 'freq (30days)'),
+        totalFreq: _.sumBy(entries, 'freq'),
         sources: new Set(entries.map(e => e.Source)).size,
         targets: new Set(entries.map(e => e.Target)).size
       }))
@@ -116,7 +116,7 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
         target: (target || 'Unknown').length > 15 ? 
           (target || 'Unknown').slice(0, 15) + '...' : 
           target || 'Unknown',
-        frequency: _.sumBy(entries, 'freq (30days)')
+        frequency: _.sumBy(entries, 'freq')
       }))
       .sort((a, b) => b.frequency - a.frequency)
       .slice(0, 5);
@@ -129,7 +129,7 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
       .map(([ip, entries]) => ({
         ip: ip || 'Unknown',
         count: entries.length,
-        totalFreq: _.sumBy(entries, 'freq (30days)')
+        totalFreq: _.sumBy(entries, 'freq')
       }))
       .sort((a, b) => b.totalFreq - a.totalFreq)
       .slice(0, 5);
@@ -141,7 +141,7 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
     return Object.entries(relationships)
       .map(([relation, entries]) => ({
         relation: relation.length > 20 ? relation.slice(0, 20) + '...' : relation,
-        strength: _.sumBy(entries, 'freq (30days)')
+        strength: _.sumBy(entries, 'freq')
       }))
       .sort((a, b) => b.strength - a.strength)
       .slice(0, 5);

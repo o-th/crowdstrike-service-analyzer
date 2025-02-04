@@ -26,12 +26,17 @@ interface ProcessedRow {
   Service: string;
   Target: string;
   Time: string;
-  'freq (30days)': number;
+  freq: number;
 }
 
 interface SortConfig {
   key: keyof ProcessedRow;
   direction: 'asc' | 'desc';
+}
+
+interface DateRange {
+  startDate: string;
+  endDate: string;
 }
 
 const CrowdStrikeAnalyzer: React.FC = () => {
@@ -45,9 +50,14 @@ const CrowdStrikeAnalyzer: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedSource, setSelectedSource] = useState<string>('');
   const [sortConfig, setSortConfig] = useState<SortConfig>({ 
-    key: 'freq (30days)', 
+    key: 'freq', 
     direction: 'desc' 
   });
+  const [dateRange, setDateRange] = useState<DateRange>({
+    startDate: '',
+    endDate: ''
+  });
+  const [rawData, setRawData] = useState<CrowdStrikeRow[]>([]);
 
   const convertToPST = (dateStr: string): string => {
     const date = new Date(dateStr);
@@ -60,10 +70,10 @@ const CrowdStrikeAnalyzer: React.FC = () => {
     }) + ' PST';
   };
 
-  const processData = (data: CrowdStrikeRow[]): ProcessedRow[] => {
+  const processData = (data: CrowdStrikeRow[], dateRange?: DateRange): ProcessedRow[] => {
     try {
-      // Convert timestamp strings to Date objects and add PST time_group
-      const processedData = data.map(row => ({
+      // Convert timestamp strings to Date objects and filter by date range if provided
+      let processedData = data.map(row => ({
         ...row,
         Timestamp: new Date(row.Timestamp),
         time_group: new Date(row.Timestamp).toLocaleString('en-US', {
@@ -73,6 +83,18 @@ const CrowdStrikeAnalyzer: React.FC = () => {
           hour12: false
         })
       }));
+
+      // Filter by date range if provided
+      if (dateRange?.startDate && dateRange?.endDate) {
+        const startDate = new Date(dateRange.startDate);
+        const endDate = new Date(dateRange.endDate);
+        endDate.setHours(23, 59, 59, 999); // Include the entire end date
+
+        processedData = processedData.filter(row => {
+          const timestamp = row.Timestamp;
+          return timestamp >= startDate && timestamp <= endDate;
+        });
+      }
 
       // Sort by timestamp
       const sortedData = _.sortBy(processedData, 'Timestamp');
@@ -92,18 +114,17 @@ const CrowdStrikeAnalyzer: React.FC = () => {
           Service,
           Target,
           Time: convertToPST(group[0].Timestamp.toISOString()),
-          'freq (30days)': group.length
+          freq: group.length
         };
       });
 
-      return _.orderBy(frequencyData, ['Source', 'freq (30days)'], ['asc', 'desc']);
+      return _.orderBy(frequencyData, ['Source', 'freq'], ['asc', 'desc']);
     } catch (err) {
       throw new Error(`Data processing failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 
   // Memoized filtered and sorted results
-  // Get unique sources with IP and hostname mapping
   const uniqueSources = useMemo(() => {
     if (!results) return [];
     
@@ -177,6 +198,7 @@ const CrowdStrikeAnalyzer: React.FC = () => {
       skipEmptyLines: true,
       complete: (results) => {
         try {
+          setRawData(results.data);
           const processedData = processData(results.data);
           setResults(processedData);
           // Start transition animation
@@ -249,36 +271,42 @@ const CrowdStrikeAnalyzer: React.FC = () => {
     setTimeout(() => setDownloadSuccess(false), 3000);
   };
 
+  const handleDateRangeApply = () => {
+    if (!rawData.length) return;
+    const processedData = processData(rawData, dateRange);
+    setResults(processedData);
+  };
+
   return (
     <Card className="w-full">
       <CardHeader>
         <div className="flex flex-row items-center justify-between">
           <CardTitle>CrowdStrike Service Analyzer</CardTitle>
           <Popover>
-          <PopoverTrigger>
-            <Info className="h-5 w-5 text-gray-500 hover:text-gray-700 cursor-pointer" />
-          </PopoverTrigger>
-          <PopoverContent>
-            <div className="space-y-4">
-              <div>
-                <h4 className="font-medium mb-2">About</h4>
-                <p className="text-sm text-gray-600">
-                  The CrowdStrike Service Analyzer is a powerful tool designed to help security teams analyze and visualize service patterns in their CrowdStrike data. It processes CSV exports to identify unique service patterns, frequencies, and temporal relationships, enabling better understanding of network behavior and potential security insights.
-                </p>
+            <PopoverTrigger>
+              <Info className="h-5 w-5 text-gray-500 hover:text-gray-700 cursor-pointer" />
+            </PopoverTrigger>
+            <PopoverContent>
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-medium mb-2">About</h4>
+                  <p className="text-sm text-gray-600">
+                    The CrowdStrike Service Analyzer is a powerful tool designed to help security teams analyze and visualize service patterns in their CrowdStrike data. It processes CSV exports to identify unique service patterns, frequencies, and temporal relationships, enabling better understanding of network behavior and potential security insights.
+                  </p>
+                </div>
+                <div>
+                  <h4 className="font-medium mb-2">Source</h4>
+                  <a 
+                    href="#" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    View on GitHub
+                  </a>
+                </div>
               </div>
-              <div>
-                <h4 className="font-medium mb-2">Source</h4>
-                <a 
-                  href="#" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-sm text-blue-600 hover:text-blue-800"
-                >
-                  View on GitHub
-                </a>
-              </div>
-            </div>
-          </PopoverContent>
+            </PopoverContent>
           </Popover>
         </div>
       </CardHeader>
@@ -369,13 +397,66 @@ const CrowdStrikeAnalyzer: React.FC = () => {
                       ))}
                     </Select>
                   </div>
+                  <Popover>
+                    <PopoverTrigger>
+                      <button
+                        className={`p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md ${
+                          dateRange.startDate || dateRange.endDate ? 'bg-blue-50 text-blue-600' : ''
+                        }`}
+                        title="Date range filter"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                          <line x1="16" y1="2" x2="16" y2="6"></line>
+                          <line x1="8" y1="2" x2="8" y2="6"></line>
+                          <line x1="3" y1="10" x2="21" y2="10"></line>
+                        </svg>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80">
+                      <div className="p-4 space-y-4">
+                        <h4 className="text-sm font-medium mb-3">Select Date Range</h4>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm text-gray-600 mb-1">Start Date</label>
+                            <Input
+                              type="date"
+                              value={dateRange.startDate}
+                              onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+                              className="w-full"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm text-gray-600 mb-1">End Date</label>
+                            <Input
+                              type="date"
+                              value={dateRange.endDate}
+                              onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+                              className="w-full"
+                            />
+                          </div>
+                          <button
+                            onClick={handleDateRangeApply}
+                            className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                          >
+                            Apply Filter
+                          </button>
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                   <button
                     onClick={() => {
                       setSearchTerm('');
                       setSelectedSource('');
+                      setDateRange({ startDate: '', endDate: '' });
+                      if (rawData.length) {
+                        const processedData = processData(rawData);
+                        setResults(processedData);
+                      }
                     }}
                     className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md"
-                    title="Reset filters"
+                    title="Reset all filters"
                   >
                     <RotateCcw className="w-4 h-4" />
                   </button>
