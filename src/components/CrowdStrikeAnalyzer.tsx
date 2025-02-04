@@ -4,7 +4,7 @@ import { Alert, AlertDescription } from './ui/alert';
 import { Input } from './ui/input';
 import Papa from 'papaparse';
 import _ from 'lodash';
-import { Upload, Download, Table, Check, Search, ArrowUpDown } from 'lucide-react';
+import { Upload, Download, Check, Search, ArrowUpDown } from 'lucide-react';
 import CrowdStrikeDashboard from './CrowdStrikeDashboard';
 
 interface CrowdStrikeRow {
