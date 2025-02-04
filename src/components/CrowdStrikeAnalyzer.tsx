@@ -40,6 +40,7 @@ const CrowdStrikeAnalyzer: React.FC = () => {
   const [showResults, setShowResults] = useState(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
   const [downloadSuccess, setDownloadSuccess] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedSource, setSelectedSource] = useState<string>('');
@@ -166,10 +167,7 @@ const CrowdStrikeAnalyzer: React.FC = () => {
     }));
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
+  const processFile = (file: File) => {
     setLoading(true);
     setError(null);
 
@@ -197,6 +195,37 @@ const CrowdStrikeAnalyzer: React.FC = () => {
         setLoading(false);
       }
     });
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    processFile(file);
+  };
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragging(false);
+
+    const file = event.dataTransfer.files[0];
+    if (!file || !file.name.toLowerCase().endsWith('.csv')) {
+      setError('Please drop a valid CSV file');
+      return;
+    }
+    processFile(file);
   };
 
   const downloadResults = () => {
@@ -256,12 +285,19 @@ const CrowdStrikeAnalyzer: React.FC = () => {
       <CardContent>
         <div className="space-y-6">
           {/* File Upload */}
-          <div className={`
-            flex flex-col items-center p-6 border-2 border-dashed rounded-lg
-            transition-all duration-300 ease-in-out
-            ${showSelector ? 'opacity-100 transform scale-100' : 'opacity-0 transform scale-95 h-0 overflow-hidden'}
-          `}>
-            <Upload className="w-12 h-12 mb-4 text-gray-400" />
+          <div 
+            className={`
+              flex flex-col items-center p-6 border-2 border-dashed rounded-lg
+              transition-all duration-300 ease-in-out
+              ${showSelector ? 'opacity-100 transform scale-100' : 'opacity-0 transform scale-95 h-0 overflow-hidden'}
+              ${isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300'}
+            `}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            <Upload className={`w-12 h-12 mb-4 ${isDragging ? 'text-blue-500' : 'text-gray-400'}`} />
+            <p className="mb-4 text-sm text-gray-500">Drag and drop your CSV file here, or</p>
             <label className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700">
               Select CSV File
               <input
