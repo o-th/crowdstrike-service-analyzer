@@ -5,7 +5,7 @@ import { Input } from './ui/input';
 import { Select } from './ui/select';
 import Papa from 'papaparse';
 import _ from 'lodash';
-import { Upload, Download, Check, Search, ArrowUpDown } from 'lucide-react';
+import { Upload, Download, Check, Search, ArrowUpDown, RotateCcw } from 'lucide-react';
 import CrowdStrikeDashboard from './CrowdStrikeDashboard';
 
 interface CrowdStrikeRow {
@@ -276,18 +276,30 @@ const CrowdStrikeAnalyzer: React.FC = () => {
                     className="pl-8"
                   />
                 </div>
-                <div className="w-64">
-                  <Select
-                    value={selectedSource}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedSource(e.target.value)}
+                <div className="flex gap-2 items-center">
+                  <div className="w-64">
+                    <Select
+                      value={selectedSource}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedSource(e.target.value)}
+                    >
+                      <option value="">All Sources</option>
+                      {uniqueSources.map((source) => (
+                        <option key={source.value} value={source.value}>
+                          {source.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setSearchTerm('');
+                      setSelectedSource('');
+                    }}
+                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md"
+                    title="Reset filters"
                   >
-                    <option value="">All Sources</option>
-                    {uniqueSources.map((source) => (
-                      <option key={source.value} value={source.value}>
-                        {source.label}
-                      </option>
-                    ))}
-                  </Select>
+                    <RotateCcw className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
 

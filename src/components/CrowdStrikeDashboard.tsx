@@ -1,8 +1,16 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Progress } from './ui/progress';
 import _ from 'lodash';
+
+// Tabs for different views
+const TABS = {
+  OVERVIEW: 'Overview',
+  SERVER_ANALYSIS: 'Server Analysis'
+} as const;
+
+type TabType = typeof TABS[keyof typeof TABS];
 
 interface DashboardProps {
   data?: Array<{
@@ -17,6 +25,8 @@ interface DashboardProps {
 }
 
 const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
+  const [activeTab, setActiveTab] = useState<TabType>(TABS.OVERVIEW);
+
   // Safeguard against empty data
   if (!data || data.length === 0) {
     return (
@@ -32,6 +42,29 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
       </div>
     );
   }
+
+  // Server-specific analytics
+  const serverAnalytics = useMemo(() => {
+    const serverGroups = _.groupBy(data, 'IP');
+    
+    return Object.entries(serverGroups).map(([ip, entries]) => {
+      const hostnames = new Set(entries.map(e => e['Source Name']));
+      const services = new Set(entries.map(e => e.Service));
+      const targets = new Set(entries.map(e => e.Target));
+      const totalEvents = _.sumBy(entries, 'freq (30days)');
+      
+      return {
+        ip,
+        hostnames: Array.from(hostnames).filter(Boolean),
+        services: Array.from(services),
+        targets: Array.from(targets),
+        totalEvents,
+        uniqueServices: services.size,
+        uniqueTargets: targets.size,
+        avgEventsPerTarget: Math.round(totalEvents / targets.size)
+      };
+    }).sort((a, b) => b.totalEvents - a.totalEvents);
+  }, [data]);
 
   // 1. Top Sources by Activity
   const topSources = useMemo(() => {
@@ -118,8 +151,85 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
   const maxSourceFreq = topSources[0]?.totalFreq || 1;
   const maxIpFreq = ipDistribution[0]?.totalFreq || 1;
 
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+  // Tab navigation
+  const renderTabs = () => (
+    <div className="flex space-x-4 mb-4 border-b">
+      {Object.values(TABS).map((tab) => (
+        <button
+          key={tab}
+          onClick={() => setActiveTab(tab)}
+          className={`px-4 py-2 font-medium ${
+            activeTab === tab
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          {tab}
+        </button>
+      ))}
+    </div>
+  );
+
+  // Server Analysis View
+  const renderServerAnalysis = () => (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {serverAnalytics.map((server) => (
+        <Card key={server.ip}>
+          <CardHeader>
+            <CardTitle className="text-lg">
+              {server.ip}
+              {server.hostnames.length > 0 && (
+                <span className="block text-sm text-gray-500 mt-1">
+                  {server.hostnames.join(', ')}
+                </span>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <div className="flex justify-between text-sm mb-2">
+                  <span>Total Events</span>
+                  <span>{server.totalEvents}</span>
+                </div>
+                <Progress 
+                  value={Math.min((server.totalEvents / serverAnalytics[0].totalEvents) * 100, 100)} 
+                  className="h-2"
+                />
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="bg-gray-50 p-2 rounded">
+                  <div className="text-lg font-semibold">{server.uniqueServices}</div>
+                  <div className="text-xs text-gray-500">Services</div>
+                </div>
+                <div className="bg-gray-50 p-2 rounded">
+                  <div className="text-lg font-semibold">{server.uniqueTargets}</div>
+                  <div className="text-xs text-gray-500">Targets</div>
+                </div>
+                <div className="bg-gray-50 p-2 rounded">
+                  <div className="text-lg font-semibold">{server.avgEventsPerTarget}</div>
+                  <div className="text-xs text-gray-500">Avg Events/Target</div>
+                </div>
+              </div>
+
+              <div className="text-sm">
+                <div className="font-medium mb-1">Top Services:</div>
+                <div className="text-gray-600">
+                  {server.services.slice(0, 3).join(', ')}
+                  {server.services.length > 3 && ' ...'}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+
+  // Overview Dashboard
+  const renderOverview = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {/* 1. Top Sources by Activity */}
       <Card>
         <CardHeader>
@@ -314,6 +424,13 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
           </ResponsiveContainer>
         </CardContent>
       </Card>
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      {renderTabs()}
+      {activeTab === TABS.SERVER_ANALYSIS ? renderServerAnalysis() : renderOverview()}
     </div>
   );
 };
