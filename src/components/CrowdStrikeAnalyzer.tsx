@@ -1,11 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
 import { Input } from './ui/input';
 import { Select } from './ui/select';
 import Papa from 'papaparse';
 import _ from 'lodash';
-import { Upload, Download, Check, Search, ArrowUpDown, RotateCcw } from 'lucide-react';
+import { Upload, Download, Check, Search, ArrowUpDown, RotateCcw, Info } from 'lucide-react';
+import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
 import CrowdStrikeDashboard from './CrowdStrikeDashboard';
 
 interface CrowdStrikeRow {
@@ -35,6 +36,8 @@ interface SortConfig {
 
 const CrowdStrikeAnalyzer: React.FC = () => {
   const [results, setResults] = useState<ProcessedRow[] | null>(null);
+  const [showSelector, setShowSelector] = useState(true);
+  const [showResults, setShowResults] = useState(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [downloadSuccess, setDownloadSuccess] = useState<boolean>(false);
@@ -178,7 +181,12 @@ const CrowdStrikeAnalyzer: React.FC = () => {
         try {
           const processedData = processData(results.data);
           setResults(processedData);
-          setLoading(false);
+          // Start transition animation
+          setShowSelector(false);
+          setTimeout(() => {
+            setShowResults(true);
+            setLoading(false);
+          }, 300); // Wait for exit animation to complete
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Unknown error');
           setLoading(false);
@@ -215,12 +223,44 @@ const CrowdStrikeAnalyzer: React.FC = () => {
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle>CrowdStrike Service Analyzer</CardTitle>
+        <div className="flex flex-row items-center justify-between">
+          <CardTitle>CrowdStrike Service Analyzer</CardTitle>
+          <Popover>
+          <PopoverTrigger>
+            <Info className="h-5 w-5 text-gray-500 hover:text-gray-700 cursor-pointer" />
+          </PopoverTrigger>
+          <PopoverContent>
+            <div className="space-y-4">
+              <div>
+                <h4 className="font-medium mb-2">About</h4>
+                <p className="text-sm text-gray-600">
+                  The CrowdStrike Service Analyzer is a powerful tool designed to help security teams analyze and visualize service patterns in their CrowdStrike data. It processes CSV exports to identify unique service patterns, frequencies, and temporal relationships, enabling better understanding of network behavior and potential security insights.
+                </p>
+              </div>
+              <div>
+                <h4 className="font-medium mb-2">Source</h4>
+                <a 
+                  href="#" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-sm text-blue-600 hover:text-blue-800"
+                >
+                  View on GitHub
+                </a>
+              </div>
+            </div>
+          </PopoverContent>
+          </Popover>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
           {/* File Upload */}
-          <div className="flex flex-col items-center p-6 border-2 border-dashed rounded-lg">
+          <div className={`
+            flex flex-col items-center p-6 border-2 border-dashed rounded-lg
+            transition-all duration-300 ease-in-out
+            ${showSelector ? 'opacity-100 transform scale-100' : 'opacity-0 transform scale-95 h-0 overflow-hidden'}
+          `}>
             <Upload className="w-12 h-12 mb-4 text-gray-400" />
             <label className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700">
               Select CSV File
@@ -247,7 +287,10 @@ const CrowdStrikeAnalyzer: React.FC = () => {
 
           {/* Results */}
           {results && (
-            <div className="space-y-4">
+            <div className={`
+              space-y-4 transition-all duration-300 ease-in-out
+              ${showResults ? 'opacity-100 transform scale-100' : 'opacity-0 transform scale-95'}
+            `}>
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                   <h3 className="text-lg font-semibold">Results</h3>
@@ -359,7 +402,10 @@ const CrowdStrikeAnalyzer: React.FC = () => {
 
           {/* Analytics Dashboard */}
           {results && (
-            <div className="mt-8">
+            <div className={`
+              mt-8 transition-all duration-300 ease-in-out
+              ${showResults ? 'opacity-100 transform scale-100' : 'opacity-0 transform scale-95'}
+            `}>
               <h3 className="text-lg font-semibold mb-4">Analytics Dashboard</h3>
               <CrowdStrikeDashboard data={filteredAndSortedResults} />
             </div>
