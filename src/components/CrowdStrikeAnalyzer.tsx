@@ -313,43 +313,45 @@ const CrowdStrikeAnalyzer: React.FC = () => {
                 </Alert>
               )}
 
-              {/* Results Table with Horizontal Scroll */}
+              {/* Results Table with Horizontal and Vertical Scroll */}
               <div className="overflow-x-auto -mx-6">
                 <div className="inline-block min-w-full align-middle px-6">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead>
-                      <tr className="bg-gray-50">
-                        {Object.keys(results[0]).map((key) => (
-                          <th 
-                            key={key}
-                            className="p-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap"
-                          >
-                            <button 
-                              onClick={() => handleSort(key as keyof ProcessedRow)}
-                              className="flex items-center gap-1 hover:text-gray-700"
+                  <div className="max-h-[400px] overflow-y-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="sticky top-0 bg-gray-50 z-10">
+                        <tr>
+                          {Object.keys(results[0]).map((key) => (
+                            <th 
+                              key={key}
+                              className="p-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap"
                             >
-                              {key === 'Time' ? 'Time (PST)' : key}
-                              <ArrowUpDown className="h-4 w-4" />
-                            </button>
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredAndSortedResults.slice(0, 10).map((row, index) => (
-                        <tr key={index} className="hover:bg-gray-50">
-                          {Object.values(row).map((value, cellIndex) => (
-                            <td 
-                              key={cellIndex}
-                              className="p-2 text-sm text-gray-500 whitespace-nowrap"
-                            >
-                              {value.toString()}
-                            </td>
+                              <button 
+                                onClick={() => handleSort(key as keyof ProcessedRow)}
+                                className="flex items-center gap-1 hover:text-gray-700"
+                              >
+                                {key === 'Time' ? 'Time (PST)' : key}
+                                <ArrowUpDown className="h-4 w-4" />
+                              </button>
+                            </th>
                           ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {filteredAndSortedResults.map((row, index) => (
+                          <tr key={index} className="hover:bg-gray-50">
+                            {Object.values(row).map((value, cellIndex) => (
+                              <td 
+                                key={cellIndex}
+                                className="p-2 text-sm text-gray-500 whitespace-nowrap"
+                              >
+                                {value.toString()}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </div>
@@ -359,7 +361,7 @@ const CrowdStrikeAnalyzer: React.FC = () => {
           {results && (
             <div className="mt-8">
               <h3 className="text-lg font-semibold mb-4">Analytics Dashboard</h3>
-              <CrowdStrikeDashboard data={results} />
+              <CrowdStrikeDashboard data={filteredAndSortedResults} />
             </div>
           )}
         </div>
