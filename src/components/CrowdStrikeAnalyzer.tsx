@@ -59,6 +59,13 @@ const CrowdStrikeAnalyzer: React.FC = () => {
   });
   const [rawData, setRawData] = useState<CrowdStrikeRow[]>([]);
   const [currentFile, setCurrentFile] = useState<string>('');
+  const [dateConstraints, setDateConstraints] = useState<{
+    minDate: string;
+    maxDate: string;
+  }>({
+    minDate: '',
+    maxDate: ''
+  });
 
   const convertToPST = (dateStr: string): string => {
     const date = new Date(dateStr);
@@ -213,6 +220,16 @@ const CrowdStrikeAnalyzer: React.FC = () => {
       skipEmptyLines: true,
       complete: (results) => {
         try {
+          // Calculate min and max dates from the data
+          const timestamps = results.data.map(row => new Date(row.Timestamp).getTime());
+          const minDate = new Date(Math.min(...timestamps));
+          const maxDate = new Date(Math.max(...timestamps));
+          
+          setDateConstraints({
+            minDate: minDate.toISOString().split('T')[0],
+            maxDate: maxDate.toISOString().split('T')[0]
+          });
+          
           setRawData(results.data);
           const processedData = processData(results.data);
           setResults(processedData);
@@ -485,6 +502,8 @@ const CrowdStrikeAnalyzer: React.FC = () => {
                             <Input
                               type="date"
                               value={dateRange.startDate}
+                              min={dateConstraints.minDate}
+                              max={dateConstraints.maxDate}
                               onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
                               className="w-full"
                             />
@@ -494,6 +513,8 @@ const CrowdStrikeAnalyzer: React.FC = () => {
                             <Input
                               type="date"
                               value={dateRange.endDate}
+                              min={dateConstraints.minDate}
+                              max={dateConstraints.maxDate}
                               onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
                               className="w-full"
                             />
@@ -513,6 +534,7 @@ const CrowdStrikeAnalyzer: React.FC = () => {
                       setSearchTerm('');
                       setSelectedSource('');
                       setDateRange({ startDate: '', endDate: '' });
+                      setDateConstraints({ minDate: '', maxDate: '' });
                       if (rawData.length) {
                         const processedData = processData(rawData);
                         setResults(processedData);
