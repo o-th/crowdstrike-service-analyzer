@@ -32,13 +32,13 @@ const VirtualizedTable: React.FC<VirtualizedTableProps> = React.memo(({
   });
 
   const columnWidths = {
-    Source: '100px',
-    'Source Name': '150px',
-    IP: '130px',
-    Service: '180px',
-    Target: '180px',
-    Time: '120px',
-    freq: '80px'
+    Source: '16%',
+    'Source Name': '18%',
+    IP: '14%',
+    Service: '22%',
+    Target: '16%',
+    Time: '10%',
+    freq: '4%'
   };
 
   // Handle empty results
@@ -51,9 +51,9 @@ const VirtualizedTable: React.FC<VirtualizedTableProps> = React.memo(({
   }
 
   return (
-    <div className="border rounded-lg h-full overflow-hidden">
-      <div className="overflow-x-auto h-full">
-        <div style={{ minWidth: '940px' }} className="h-full relative">
+    <div className="border rounded-lg h-full overflow-hidden w-full">
+      <div className="overflow-x-auto h-full w-full">
+        <div className="h-full relative w-full min-w-[600px] max-w-full">
           {/* Header */}
           <div className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
             <div className="flex w-full">
@@ -76,7 +76,7 @@ const VirtualizedTable: React.FC<VirtualizedTableProps> = React.memo(({
           {/* Virtualized Body */}
           <div
             ref={parentRef}
-            className="overflow-y-auto h-[calc(100vh-500px)] min-h-[400px]"
+            className="overflow-y-auto h-[calc(100vh-300px)] min-h-[400px]"
           >
             <div
               style={{
@@ -90,26 +90,26 @@ const VirtualizedTable: React.FC<VirtualizedTableProps> = React.memo(({
                 return (
                   <div
                     key={virtualRow.index}
-                    className="absolute top-0 left-0 flex hover:bg-gray-50 border-b border-gray-200"
+                    className="absolute top-0 left-0 flex hover:bg-gray-50 border-b border-gray-200 w-full"
                     style={{
                       height: virtualRow.size,
-                      transform: `translateY(${virtualRow.start}px)`,
-                      width: '100%'
+                      transform: `translateY(${virtualRow.start}px)`
                     }}
                   >
                     {(Object.keys(columnWidths) as Array<keyof typeof columnWidths>).map((key) => (
                       <div
                         key={key}
-                        className={`p-3 text-sm text-gray-500 whitespace-nowrap ${
+                        className={`p-3 text-sm text-gray-500 group relative ${
                           key === 'freq' ? 'text-right' : ''
                         }`}
                         style={{ 
                           width: columnWidths[key],
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
+                          minWidth: key === 'freq' ? '60px' : '100px'
                         }}
                       >
-                        {row[key].toString()}
+                        <div className="truncate" title={row[key].toString()}>
+                          {row[key].toString()}
+                        </div>
                       </div>
                     ))}
                   </div>
