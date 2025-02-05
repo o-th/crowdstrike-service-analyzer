@@ -95,7 +95,7 @@ const VirtualizedTable: React.FC<VirtualizedTableProps> = React.memo(({
                 return (
                   <div
                     key={virtualRow.index}
-                    className="absolute top-0 left-0 flex hover:bg-gray-50 border-b border-gray-200 w-full"
+                    className={`absolute top-0 left-0 flex hover:bg-gray-50 border-b border-gray-200 w-full ${virtualRow.index % 2 === 0 ? 'bg-white' : 'bg-gray-100'}`}
                     style={{
                       height: virtualRow.size,
                       transform: `translateY(${virtualRow.start}px)`
