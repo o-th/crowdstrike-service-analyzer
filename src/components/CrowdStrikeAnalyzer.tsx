@@ -8,6 +8,7 @@ import _ from 'lodash';
 import { Upload, Download, Check, Search, RotateCcw, Info, X } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
 import VirtualizedTable from './VirtualizedTable.tsx';
+import DateRangeSelector from './DateRangeSelector';
 
 // Lazy load the dashboard component
 const CrowdStrikeDashboard = lazy(() => import('./CrowdStrikeDashboard'));
@@ -421,7 +422,7 @@ const CrowdStrikeAnalyzer: React.FC = () => {
                   <h4 className="font-medium">About</h4>
                 </div>
                 <p className="text-sm text-gray-600">
-                  Looking to make sense of your CrowdStrike service access data? Our analyzer helps you uncover and understand access patterns in your environment with powerful visualization tools. Simply upload your "On-Prem Service Access" CSV data and we'll help you spot unique patterns, track frequencies, and map out relationships over time. Best of all, your data stays completely private - everything runs right in your browser with no server communication.
+                A visualization tool for analyzing CrowdStrike "On-Prem Service Access" data. Upload your CSV export to explore access patterns, track frequencies, and map relationships over time. All data processing occurs client-side in your browser.
                 </p>
               </div>
               
@@ -576,40 +577,22 @@ const CrowdStrikeAnalyzer: React.FC = () => {
                         </svg>
                       </div>
                     </PopoverTrigger>
-                    <PopoverContent className="w-80">
-                      <div className="p-4 space-y-4">
-                        <h4 className="text-sm font-medium mb-3">Select Date Range</h4>
-                        <div className="space-y-4">
-                          <div>
-                            <label className="block text-sm text-gray-600 mb-1">Start Date</label>
-                            <Input
-                              type="date"
-                              value={dateRange.startDate}
-                              min={dateConstraints.minDate}
-                              max={dateConstraints.maxDate}
-                              onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
-                              className="w-full"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm text-gray-600 mb-1">End Date</label>
-                            <Input
-                              type="date"
-                              value={dateRange.endDate}
-                              min={dateConstraints.minDate}
-                              max={dateConstraints.maxDate}
-                              onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
-                              className="w-full"
-                            />
-                          </div>
-                          <button
-                            onClick={handleDateRangeApply}
-                            className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-                          >
-                            Apply Filter
-                          </button>
-                        </div>
-                      </div>
+                    <PopoverContent className="w-[400px]">
+                      <DateRangeSelector
+                        startDate={dateRange.startDate ? new Date(dateRange.startDate) : null}
+                        endDate={dateRange.endDate ? new Date(dateRange.endDate) : null}
+                        onApply={(start, end) => {
+                          if (start && end) {
+                            setDateRange({
+                              startDate: start.toISOString().split('T')[0],
+                              endDate: end.toISOString().split('T')[0]
+                            });
+                            handleDateRangeApply();
+                          }
+                        }}
+                        minDate={dateConstraints.minDate ? new Date(dateConstraints.minDate) : undefined}
+                        maxDate={dateConstraints.maxDate ? new Date(dateConstraints.maxDate) : undefined}
+                      />
                     </PopoverContent>
                   </Popover>
                   <button
