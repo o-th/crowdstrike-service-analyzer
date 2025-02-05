@@ -360,12 +360,12 @@ const CrowdStrikeAnalyzer: React.FC = () => {
   };
 
   const downloadResults = () => {
-    if (!results) return;
+    if (!results || !filteredAndSortedResults) return;
     
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const filename = `crowdstrike_analysis_${timestamp}.csv`;
     
-    const csv = Papa.unparse(results);
+    const csv = Papa.unparse(filteredAndSortedResults);
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
