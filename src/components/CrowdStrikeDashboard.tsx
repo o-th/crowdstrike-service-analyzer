@@ -250,11 +250,24 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
           </CardContent>
         </Card>
 
-        <ChartCard title="Common Time Patterns">
-          <Suspense fallback={<div>Loading chart...</div>}>
-            <BarChartComponent data={analytics.timePatternAnalysis} type="time" />
-          </Suspense>
-        </ChartCard>
+        <Card>
+          <CardHeader>
+            <CardTitle>Top Source IPs</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {analytics.ipDistribution.map((ip, index) => (
+                <ProgressBar
+                  key={index}
+                  label={ip.ip}
+                  value={ip.totalFreq}
+                  total={maxIpFreq}
+                  unit="events"
+                />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
@@ -281,24 +294,11 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
           </Suspense>
         </ChartCard>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Top Source IPs</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {analytics.ipDistribution.map((ip, index) => (
-                <ProgressBar
-                  key={index}
-                  label={ip.ip}
-                  value={ip.totalFreq}
-                  total={maxIpFreq}
-                  unit="events"
-                />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <ChartCard title="Common Time Patterns">
+          <Suspense fallback={<div>Loading chart...</div>}>
+            <BarChartComponent data={analytics.timePatternAnalysis} type="time" />
+          </Suspense>
+        </ChartCard>
 
         <ChartCard title="Strongest Source-Target Relations">
           <Suspense fallback={<div>Loading chart...</div>}>

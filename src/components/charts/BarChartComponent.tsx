@@ -68,7 +68,7 @@ export const BarChartComponent: React.FC<BarChartComponentProps> = ({ data, type
       <BarChart
         data={data}
         layout={type === 'target' ? 'horizontal' : 'vertical'}
-        margin={type === 'target' ? undefined : { left: 100, right: 10, top: 5, bottom: 5 }}
+        margin={type === 'target' ? undefined : type === 'time' ? { left: 70, right: 10, top: 5, bottom: 5 } : { left: 100, right: 10, top: 5, bottom: 5 }}
       >
         <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={true} />
         <XAxis 
@@ -83,7 +83,7 @@ export const BarChartComponent: React.FC<BarChartComponentProps> = ({ data, type
         <YAxis
           dataKey={type === 'time' ? 'timePattern' : type === 'relation' ? 'relation' : undefined}
           type={type === 'time' || type === 'relation' ? 'category' : 'number'}
-          width={type === 'time' || type === 'relation' ? 90 : undefined}
+          width={type === 'time' ? 60 : type === 'relation' ? 90 : undefined}
           tick={{ fontSize: 11 }}
         />
         <Tooltip<ValueType, NameType>
