@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
 import { Input } from './ui/input';
@@ -196,6 +196,50 @@ const CrowdStrikeAnalyzer: React.FC = () => {
     }));
   };
 
+  // Load persisted data on component mount
+  useEffect(() => {
+    const persistedData = localStorage.getItem('crowdstrike_analyzer_data');
+    if (persistedData) {
+      const {
+        rawData,
+        results,
+        searchTerm,
+        selectedSource,
+        dateRange,
+        dateConstraints,
+        currentFile
+      } = JSON.parse(persistedData);
+
+      if (rawData && rawData.length > 0) {
+        setRawData(rawData);
+        setResults(results);
+        setSearchTerm(searchTerm || '');
+        setSelectedSource(selectedSource || '');
+        setDateRange(dateRange || { startDate: '', endDate: '' });
+        setDateConstraints(dateConstraints || { minDate: '', maxDate: '' });
+        setCurrentFile(currentFile || '');
+        setShowSelector(false);
+        setShowResults(true);
+      }
+    }
+  }, []);
+
+  // Save data to localStorage when relevant states change
+  useEffect(() => {
+    if (rawData.length > 0) {
+      const dataToStore = {
+        rawData,
+        results,
+        searchTerm,
+        selectedSource,
+        dateRange,
+        dateConstraints,
+        currentFile
+      };
+      localStorage.setItem('crowdstrike_analyzer_data', JSON.stringify(dataToStore));
+    }
+  }, [rawData, results, searchTerm, selectedSource, dateRange, dateConstraints, currentFile]);
+
   const resetView = () => {
     setResults(null);
     setShowResults(false);
@@ -207,6 +251,8 @@ const CrowdStrikeAnalyzer: React.FC = () => {
     setSearchTerm('');
     setSelectedSource('');
     setDateRange({ startDate: '', endDate: '' });
+    // Clear localStorage when view is reset
+    localStorage.removeItem('crowdstrike_analyzer_data');
   };
 
   const processFile = (file: File) => {
