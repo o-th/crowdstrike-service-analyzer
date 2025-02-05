@@ -5,7 +5,7 @@ import { Input } from './ui/input';
 import { Select } from './ui/select';
 import Papa from 'papaparse';
 import _ from 'lodash';
-import { Upload, Download, Check, Search, ArrowUpDown, RotateCcw, Info } from 'lucide-react';
+import { Upload, Download, Check, Search, ArrowUpDown, RotateCcw, Info, X } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
 import CrowdStrikeDashboard from './CrowdStrikeDashboard';
 
@@ -58,6 +58,7 @@ const CrowdStrikeAnalyzer: React.FC = () => {
     endDate: ''
   });
   const [rawData, setRawData] = useState<CrowdStrikeRow[]>([]);
+  const [currentFile, setCurrentFile] = useState<string>('');
 
   const convertToPST = (dateStr: string): string => {
     const date = new Date(dateStr);
@@ -188,9 +189,23 @@ const CrowdStrikeAnalyzer: React.FC = () => {
     }));
   };
 
+  const resetView = () => {
+    setResults(null);
+    setShowResults(false);
+    setTimeout(() => {
+      setShowSelector(true);
+    }, 300);
+    setCurrentFile('');
+    setRawData([]);
+    setSearchTerm('');
+    setSelectedSource('');
+    setDateRange({ startDate: '', endDate: '' });
+  };
+
   const processFile = (file: File) => {
     setLoading(true);
     setError(null);
+    setCurrentFile(file.name);
 
     Papa.parse<CrowdStrikeRow>(file, {
       header: true,
@@ -282,32 +297,46 @@ const CrowdStrikeAnalyzer: React.FC = () => {
       <CardHeader>
         <div className="flex flex-row items-center justify-between">
           <CardTitle>CrowdStrike Service Analyzer</CardTitle>
-          <Popover>
-            <PopoverTrigger>
-              <Info className="h-5 w-5 text-gray-500 hover:text-gray-700 cursor-pointer" />
-            </PopoverTrigger>
-            <PopoverContent>
-              <div className="space-y-4">
-                <div>
-                  <h4 className="font-medium mb-2">About</h4>
-                  <p className="text-sm text-gray-600">
-                    The CrowdStrike Service Analyzer is a powerful tool designed to help security teams analyze and visualize service patterns in their CrowdStrike data. It processes CSV exports to identify unique service patterns, frequencies, and temporal relationships, enabling better understanding of network behavior and potential security insights.
-                  </p>
-                </div>
-                <div>
-                  <h4 className="font-medium mb-2">Source</h4>
-                  <a 
-                    href="#" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-sm text-blue-600 hover:text-blue-800"
-                  >
-                    View on GitHub
-                  </a>
-                </div>
+          <div className="flex items-center gap-3">
+            {results && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">{currentFile}</span>
+                <button
+                  onClick={resetView}
+                  className="p-1 hover:bg-gray-100 rounded-full"
+                  title="Close current file"
+                >
+                  <X className="h-4 w-4 text-gray-500 hover:text-gray-700" />
+                </button>
               </div>
-            </PopoverContent>
-          </Popover>
+            )}
+            <Popover>
+              <PopoverTrigger>
+                <Info className="h-5 w-5 text-gray-500 hover:text-gray-700 cursor-pointer" />
+              </PopoverTrigger>
+              <PopoverContent>
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-medium mb-2">About</h4>
+                    <p className="text-sm text-gray-600">
+                      The CrowdStrike Service Analyzer is a powerful tool designed to help security teams analyze and visualize service patterns in their CrowdStrike data. It processes CSV exports to identify unique service patterns, frequencies, and temporal relationships, enabling better understanding of network behavior and potential security insights.
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium mb-2">Source</h4>
+                    <a 
+                      href="#" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-600 hover:text-blue-800"
+                    >
+                      View on GitHub
+                    </a>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
