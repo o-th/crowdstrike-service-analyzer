@@ -41,6 +41,15 @@ const VirtualizedTable: React.FC<VirtualizedTableProps> = React.memo(({
     freq: '80px'
   };
 
+  // Handle empty results
+  if (!filteredAndSortedResults.length) {
+    return (
+      <div className="border rounded-lg p-8 text-center text-gray-500">
+        No results found for your search criteria
+      </div>
+    );
+  }
+
   return (
     <div className="border rounded-lg h-full overflow-hidden">
       <div className="overflow-x-auto h-full">

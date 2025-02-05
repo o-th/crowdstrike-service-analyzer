@@ -57,24 +57,20 @@ const ProgressBar = React.memo(({ label, value, total, unit }: { label: string; 
 const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
   const [activeTab, setActiveTab] = useState<TabType>(TABS.OVERVIEW);
 
-  // Safeguard against empty data
-  if (!data || data.length === 0) {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>No Data Available</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-500">Please provide data to view analytics.</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   // Combined data processing for better performance
   const analytics = useMemo(() => {
+    // Return empty analytics if no data
+    if (!data || data.length === 0) {
+      return {
+        topSources: [],
+        serviceStats: [],
+        targetFrequency: [],
+        timePatternAnalysis: [],
+        ipDistribution: [],
+        relationshipStrength: []
+      };
+    }
+
     // Create maps for efficient lookups
     const sourceMap = new Map();
     const serviceMap = new Map();
@@ -214,6 +210,22 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
 
   // Memoized overview component
   const Overview = React.memo(() => {
+    // If no analytics data, show empty state
+    if (!analytics.topSources.length) {
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>No Matching Data</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-gray-500">No data matches the current filters.</p>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
     const maxSourceFreq = analytics.topSources[0]?.totalFreq || 1;
     const maxIpFreq = analytics.ipDistribution[0]?.totalFreq || 1;
 
@@ -298,7 +310,18 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
   });
 
   // Memoized server analysis component
-  const ServerAnalysis = React.memo(() => (
+  const ServerAnalysis = React.memo(() => !analytics.ipDistribution.length ? (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>No Matching Data</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-gray-500">No data matches the current filters.</p>
+        </CardContent>
+      </Card>
+    </div>
+  ) : (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       {analytics.ipDistribution.map((server) => (
         <Card key={server.ip}>
@@ -368,6 +391,22 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
       ))}
     </div>
   );
+
+  // Render empty state if no data
+  if (!data || data.length === 0) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>No Data Available</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-500">Please provide data to view analytics.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
