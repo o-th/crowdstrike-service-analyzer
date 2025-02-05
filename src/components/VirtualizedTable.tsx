@@ -37,13 +37,11 @@ const VirtualizedTable: React.FC<VirtualizedTableProps> = React.memo(({
   });
 
   const columnWidths = {
-    Source: '16%',
-    'Source Name': '18%',
-    IP: '14%',
-    Service: '22%',
-    Target: '16%',
-    Time: '10%',
-    freq: '4%'
+    IP: '30%', // Main source column showing hostname (IP)
+    Service: '30%',
+    Target: '20%',
+    Time: '15%',
+    freq: '5%'
   };
 
   // Handle empty results
@@ -70,7 +68,9 @@ const VirtualizedTable: React.FC<VirtualizedTableProps> = React.memo(({
                   onClick={() => handleSort(key)}
                 >
                   <div className="flex items-center gap-1">
-                    {key === 'Time' ? 'Time (PST)' : key}
+                    {key === 'Time' ? 'Time (PST)' : 
+                     key === 'IP' ? 'Source' : 
+                     key}
                     <ArrowUpDown className="h-4 w-4" />
                   </div>
                 </div>
@@ -112,8 +112,15 @@ const VirtualizedTable: React.FC<VirtualizedTableProps> = React.memo(({
                           minWidth: key === 'freq' ? '60px' : '100px'
                         }}
                       >
-                        <div className="truncate" title={row[key].toString()}>
-                          {row[key].toString()}
+                        <div 
+                          className="truncate" 
+                          title={key === 'IP'
+                            ? (row['Source Name'] ? `${row['Source Name']} (${row.IP})` : row.IP)
+                            : row[key].toString()}
+                        >
+                          {key === 'IP'
+                            ? (row['Source Name'] ? `${row['Source Name']} (${row.IP})` : row.IP)
+                            : row[key].toString()}
                         </div>
                       </div>
                     ))}

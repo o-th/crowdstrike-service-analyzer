@@ -9,7 +9,8 @@ const BarChartComponent = lazy(() => import('./charts/BarChartComponent').then(m
 // Tabs for different views
 const TABS = {
   OVERVIEW: 'Overview',
-  SERVER_ANALYSIS: 'Server Analysis'
+  SERVER_ANALYSIS: 'Server Analysis',
+  UNIQUE_ANALYSIS: 'Unique Targets & Sources'
 } as const;
 
 type TabType = typeof TABS[keyof typeof TABS];
@@ -170,11 +171,10 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
 
       targetFrequency: Array.from(targetMap.entries())
         .map(([target, data]) => ({
-          target: target.length > 15 ? target.slice(0, 15) + '...' : target,
+          target,
           ...data
         }))
-        .sort((a, b) => b.frequency - a.frequency)
-        .slice(0, 5),
+        .sort((a, b) => b.frequency - a.frequency),
 
       timePatternAnalysis: Array.from(timeMap.entries())
         .map(([_, data]) => ({
@@ -195,8 +195,7 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
           uniqueTargets: data.targets.size,
           avgEventsPerTarget: Math.round(data.totalFreq / data.targets.size)
         }))
-        .sort((a, b) => b.totalFreq - a.totalFreq)
-        .slice(0, 5),
+        .sort((a, b) => b.totalFreq - a.totalFreq),
 
       relationshipStrength: Array.from(relationMap.entries())
         .map(([relation, data]) => ({
@@ -256,7 +255,7 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {analytics.ipDistribution.map((ip, index) => (
+              {analytics.ipDistribution.slice(0, 5).map((ip, index) => (
                 <ProgressBar
                   key={index}
                   label={ip.ip}
@@ -290,7 +289,10 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
 
         <ChartCard title="Most Targeted Systems">
           <Suspense fallback={<div>Loading chart...</div>}>
-            <BarChartComponent data={analytics.targetFrequency} type="target" />
+            <BarChartComponent data={analytics.targetFrequency.slice(0, 5).map(item => ({
+              ...item,
+              target: item.target.length > 15 ? item.target.slice(0, 15) + '...' : item.target
+            }))} type="target" />
           </Suspense>
         </ChartCard>
 
@@ -327,12 +329,9 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
         <Card key={server.ip}>
           <CardHeader>
             <CardTitle className="text-lg">
-              {server.ip}
-              {server.hostnames.length > 0 && (
-                <span className="block text-sm text-gray-500 mt-1">
-                  {server.hostnames.join(', ')}
-                </span>
-              )}
+              {server.hostnames.length > 0 
+                ? `${server.hostnames[0]} (${server.ip})`
+                : server.ip}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -392,6 +391,88 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
     </div>
   );
 
+  // Memoized unique analysis component
+  const UniqueAnalysis = React.memo(() => !analytics.ipDistribution.length ? (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>No Matching Data</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-gray-500">No data matches the current filters.</p>
+        </CardContent>
+      </Card>
+    </div>
+  ) : (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Unique Sources</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {analytics.ipDistribution.map((source) => (
+              <div key={source.ip} className="border-b pb-4 last:border-b-0">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <div className="font-medium">
+                      {source.hostnames.length > 0 
+                        ? `${source.hostnames[0]} (${source.ip})`
+                        : source.ip}
+                    </div>
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {source.totalFreq} events
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mt-2">
+                  <div>
+                    <div className="text-sm text-gray-500">Unique Services</div>
+                    <div className="font-medium">{source.uniqueServices}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-500">Unique Targets</div>
+                    <div className="font-medium">{source.uniqueTargets}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Unique Targets</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {analytics.targetFrequency.map((target) => {
+              const maxFreq = analytics.targetFrequency[0]?.frequency || 1;
+              return (
+                <div key={target.target} className="border-b pb-4 last:border-b-0">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="font-medium">{target.target}</div>
+                    <div className="text-sm text-gray-500">
+                      {target.frequency} events
+                    </div>
+                  </div>
+                  <div className="mt-2">
+                    <div className="text-sm text-gray-500">Access Frequency</div>
+                    <Progress 
+                      value={Math.min((target.frequency / maxFreq) * 100, 100)} 
+                      className="h-2 mt-1"
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  ));
+
   // Render empty state if no data
   if (!data || data.length === 0) {
     return (
@@ -411,7 +492,9 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
   return (
     <div className="space-y-4">
       {renderTabs()}
-      {activeTab === TABS.SERVER_ANALYSIS ? <ServerAnalysis /> : <Overview />}
+      {activeTab === TABS.SERVER_ANALYSIS ? <ServerAnalysis /> : 
+       activeTab === TABS.UNIQUE_ANALYSIS ? <UniqueAnalysis /> : 
+       <Overview />}
     </div>
   );
 };

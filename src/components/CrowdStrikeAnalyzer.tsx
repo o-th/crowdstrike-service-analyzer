@@ -86,9 +86,18 @@ const CrowdStrikeAnalyzer: React.FC = () => {
   const processData = useMemo(() => {
     return (data: CrowdStrikeRow[], dateRange?: DateRange): ProcessedRow[] => {
       try {
+        // First, create a map of IPs to their hostnames
+        const ipToHostnameMap = new Map<string, string>();
+        data.forEach(row => {
+          if (row.IP && row['Source Name'] && (!ipToHostnameMap.has(row.IP) || !ipToHostnameMap.get(row.IP))) {
+            ipToHostnameMap.set(row.IP, row['Source Name']);
+          }
+        });
+
         // Convert timestamp strings to Date objects and filter by date range if provided
         const processedData = data.map(row => ({
           ...row,
+          'Source Name': ipToHostnameMap.get(row.IP) || row['Source Name'], // Use mapped hostname if available
           Timestamp: new Date(row.Timestamp),
           time_group: new Date(row.Timestamp).toLocaleString('en-US', {
             timeZone: 'America/Los_Angeles',
@@ -181,31 +190,25 @@ const CrowdStrikeAnalyzer: React.FC = () => {
   const uniqueSources = useMemo(() => {
     if (!results) return [];
     
-    // Create a map of IPs to their hostnames
-    const sourceMap = new Map<string, Set<string>>();
+    // Create a map of unique IPs and their associated hostnames
+    const sourceMap = new Map<string, string>();
     
     results.forEach(row => {
       const ip = row.IP;
       const hostname = row['Source Name'];
-      if (!sourceMap.has(ip)) {
-        sourceMap.set(ip, new Set());
-      }
-      if (hostname) {
-        sourceMap.get(ip)?.add(hostname);
+      
+      // Only store hostname if we don't already have one for this IP
+      if (!sourceMap.has(ip) || !sourceMap.get(ip)) {
+        sourceMap.set(ip, hostname);
       }
     });
 
-    // Convert map to array of source options
+    // Convert map to array of source options and sort by hostname/IP
     return Array.from(sourceMap.entries())
-      .map(([ip, hostnames]) => {
-        const hostnameList = Array.from(hostnames);
-        return {
-          value: ip,
-          label: hostnameList.length > 0 
-            ? `${ip} (${hostnameList.join(', ')})`
-            : ip
-        };
-      })
+      .map(([ip, hostname]) => ({
+        value: ip,
+        label: hostname ? `${hostname} (${ip})` : ip
+      }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [results]);
 
@@ -365,7 +368,15 @@ const CrowdStrikeAnalyzer: React.FC = () => {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const filename = `crowdstrike_analysis_${timestamp}.csv`;
     
-    const csv = Papa.unparse(filteredAndSortedResults);
+    // Transform the data to match the table structure
+    const transformedData = filteredAndSortedResults.map(row => ({
+      Source: row['Source Name'] ? `${row['Source Name']} (${row.IP})` : row.IP,
+      Service: row.Service,
+      Target: row.Target,
+      Time: row.Time,
+      freq: row.freq
+    }));
+    const csv = Papa.unparse(transformedData);
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
