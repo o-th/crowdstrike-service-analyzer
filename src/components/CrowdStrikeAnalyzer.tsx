@@ -234,6 +234,17 @@ const CrowdStrikeAnalyzer: React.FC = () => {
     });
   };
 
+  const loadSampleData = async () => {
+    try {
+      const response = await fetch('/sample_data.csv');
+      const text = await response.text();
+      const file = new File([text], 'sample_data.csv', { type: 'text/csv' });
+      processFile(file);
+    } catch (error) {
+      setError('Failed to load sample data: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  };
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -296,7 +307,7 @@ const CrowdStrikeAnalyzer: React.FC = () => {
     <Card className="w-full">
       <CardHeader>
         <div className="flex flex-row items-center justify-between">
-          <CardTitle>CrowdStrike Service Analyzer</CardTitle>
+          <CardTitle>CrowdStrike Service Access Analyzer</CardTitle>
           <div className="flex items-center gap-3">
             {results && (
               <div className="flex items-center gap-2">
@@ -319,19 +330,34 @@ const CrowdStrikeAnalyzer: React.FC = () => {
                   <div>
                     <h4 className="font-medium mb-2">About</h4>
                     <p className="text-sm text-gray-600">
-                      The CrowdStrike Service Analyzer is a powerful tool designed to help security teams analyze and visualize service patterns in their CrowdStrike data. It processes CSV exports to identify unique service patterns, frequencies, and temporal relationships, enabling better understanding of network behavior and potential security insights.
+                      The CrowdStrike Service Access Analyzer is a specialized tool designed to help security teams analyze and visualize service access patterns from CrowdStrike's "On-Prem Service Access" data. It processes these CSV exports to identify unique access patterns, frequencies, and temporal relationships, enabling better understanding of service usage and potential security insights.
                     </p>
                   </div>
                   <div>
-                    <h4 className="font-medium mb-2">Source</h4>
-                    <a 
-                      href="#" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-sm text-blue-600 hover:text-blue-800"
-                    >
-                      View on GitHub
-                    </a>
+                    <h4 className="font-medium mb-2">Data Source</h4>
+                    <p className="text-sm text-gray-600">
+                      To get the CSV data:
+                      <ol className="list-decimal pl-4 mt-1 space-y-1">
+                        <li>Go to <a href="https://falcon.crowdstrike.com/identity-protection/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">CrowdStrike Identity Protection</a></li>
+                        <li>Navigate to Threat Hunter {'->'} Identity Protection {'->'} Activity</li>
+                        <li>Filter for "On-Prem Service Access" events</li>
+                        <li>Click Export and select CSV format</li>
+                      </ol>
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium mb-2">Required Headers</h4>
+                    <p className="text-sm text-gray-600">
+                      The CSV file must include these columns:
+                      <ul className="list-disc pl-4 mt-1">
+                        <li>Source</li>
+                        <li>Source Name</li>
+                        <li>IP</li>
+                        <li>Service</li>
+                        <li>Target</li>
+                        <li>Timestamp</li>
+                      </ul>
+                    </p>
                   </div>
                 </div>
               </PopoverContent>
@@ -355,15 +381,23 @@ const CrowdStrikeAnalyzer: React.FC = () => {
           >
             <Upload className={`w-12 h-12 mb-4 ${isDragging ? 'text-blue-500' : 'text-gray-400'}`} />
             <p className="mb-4 text-sm text-gray-500">Drag and drop your CSV file here, or</p>
-            <label className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700">
-              Select CSV File
-              <input
-                type="file"
-                accept=".csv"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-            </label>
+            <div className="flex gap-2">
+              <button
+                onClick={loadSampleData}
+                className="px-4 py-2 text-sm font-medium text-white bg-gray-500 rounded-md cursor-pointer hover:bg-gray-600"
+              >
+                Load Sample Data
+              </button>
+              <label className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700">
+                Select CSV File
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
+            </div>
           </div>
 
           {/* Loading State */}
