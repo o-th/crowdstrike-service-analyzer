@@ -32,21 +32,21 @@ const VirtualizedTable: React.FC<VirtualizedTableProps> = React.memo(({
   });
 
   const columnWidths = {
-    Source: '10%',
-    'Source Name': '15%',
-    IP: '15%',
-    Service: '20%',
-    Target: '20%',
-    Time: '12%',
-    freq: '8%'
+    Source: '100px',
+    'Source Name': '150px',
+    IP: '130px',
+    Service: '180px',
+    Target: '180px',
+    Time: '120px',
+    freq: '80px'
   };
 
   return (
-    <div className="border rounded-lg h-full">
-      <div className="overflow-hidden h-full">
-        <div className="min-w-full h-full">
+    <div className="border rounded-lg h-full overflow-hidden">
+      <div className="overflow-x-auto h-full">
+        <div style={{ minWidth: '940px' }} className="h-full relative">
           {/* Header */}
-          <div className="bg-gray-50 border-b border-gray-200">
+          <div className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
             <div className="flex w-full">
               {(Object.keys(columnWidths) as Array<keyof typeof columnWidths>).map((key) => (
                 <div
@@ -67,7 +67,7 @@ const VirtualizedTable: React.FC<VirtualizedTableProps> = React.memo(({
           {/* Virtualized Body */}
           <div
             ref={parentRef}
-            className="overflow-auto h-[calc(100vh-500px)] min-h-[400px]"
+            className="overflow-y-auto h-[calc(100vh-500px)] min-h-[400px]"
           >
             <div
               style={{
