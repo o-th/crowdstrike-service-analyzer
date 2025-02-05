@@ -517,18 +517,18 @@ const CrowdStrikeAnalyzer: React.FC = () => {
               </div>
 
               {/* Search and Filter Controls */}
-              <div className="flex items-center gap-4">
-                <div className="relative flex-1">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="relative w-full">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
                   <Input
                     type="text"
                     placeholder="Search by source, target, IP..."
                     value={searchTerm}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
-                    className="pl-8"
+                    className="pl-8 w-full"
                   />
                 </div>
-                <div className="flex gap-2 items-center">
+                <div className="flex gap-2 items-center w-full sm:w-auto">
                   <div className="w-64">
                     <Select
                       value={selectedSource}
