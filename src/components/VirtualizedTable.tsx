@@ -23,9 +23,14 @@ const VirtualizedTable: React.FC<VirtualizedTableProps> = React.memo(({
   handleSort 
 }) => {
   const parentRef = React.useRef<HTMLDivElement>(null);
+  const [isExpanded, setIsExpanded] = React.useState(false);
+  
+  const displayedResults = isExpanded 
+    ? filteredAndSortedResults 
+    : filteredAndSortedResults.slice(0, 10);
 
   const rowVirtualizer = useVirtualizer({
-    count: filteredAndSortedResults.length,
+    count: displayedResults.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 45,
     overscan: 5
@@ -51,9 +56,9 @@ const VirtualizedTable: React.FC<VirtualizedTableProps> = React.memo(({
   }
 
   return (
-    <div className="border rounded-lg h-full overflow-hidden w-full">
-      <div className="overflow-x-auto h-full w-full">
-        <div className="h-full relative w-full min-w-[600px] max-w-full">
+    <div className="border rounded-lg overflow-hidden w-full">
+      <div className="overflow-x-auto w-full">
+        <div className="relative w-full min-w-[600px] max-w-full">
           {/* Header */}
           <div className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
             <div className="flex w-full">
@@ -76,7 +81,7 @@ const VirtualizedTable: React.FC<VirtualizedTableProps> = React.memo(({
           {/* Virtualized Body */}
           <div
             ref={parentRef}
-            className="overflow-y-auto h-[calc(100vh-300px)] min-h-[400px]"
+            className="overflow-y-auto h-[450px]"
           >
             <div
               style={{
@@ -86,7 +91,7 @@ const VirtualizedTable: React.FC<VirtualizedTableProps> = React.memo(({
               }}
             >
               {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                const row = filteredAndSortedResults[virtualRow.index];
+                const row = displayedResults[virtualRow.index];
                 return (
                   <div
                     key={virtualRow.index}
@@ -117,6 +122,18 @@ const VirtualizedTable: React.FC<VirtualizedTableProps> = React.memo(({
               })}
             </div>
           </div>
+          
+          {/* Expand/Collapse Button */}
+          {filteredAndSortedResults.length > 10 && (
+            <div className="border-t border-gray-200 p-2 text-center">
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+              >
+                {isExpanded ? 'Show Less' : `Show All (${filteredAndSortedResults.length} results)`}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
