@@ -67,8 +67,8 @@ export const BarChartComponent: React.FC<BarChartComponentProps> = ({ data, type
     <ResponsiveContainer width="100%" height="100%" className="w-full">
       <BarChart
         data={data}
-        layout={type === 'time' || type === 'relation' ? 'vertical' : 'horizontal'}
-        margin={type === 'time' || type === 'relation' ? { left: 100, right: 10, top: 5, bottom: 5 } : undefined}
+        layout={type === 'target' ? 'horizontal' : 'vertical'}
+        margin={type === 'target' ? undefined : { left: 100, right: 10, top: 5, bottom: 5 }}
       >
         <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={true} />
         <XAxis 
@@ -92,7 +92,7 @@ export const BarChartComponent: React.FC<BarChartComponentProps> = ({ data, type
         <Bar
           dataKey={type === 'time' ? 'totalFreq' : type === 'target' ? 'frequency' : 'strength'}
           name="Frequency"
-          fill={type === 'target' ? '#82ca9d' : '#8884d8'}
+          fill="#8884d8"
           barSize={25}
         />
       </BarChart>
