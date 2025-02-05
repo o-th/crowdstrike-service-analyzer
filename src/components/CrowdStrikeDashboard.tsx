@@ -1,8 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, lazy, Suspense } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Progress } from './ui/progress';
 import _ from 'lodash';
+
+// Lazy load the chart component
+const BarChartComponent = lazy(() => import('./charts/BarChartComponent').then(mod => ({ default: mod.BarChartComponent })));
 
 // Tabs for different views
 const TABS = {
@@ -24,6 +26,34 @@ interface DashboardProps {
   }>;
 }
 
+// Memoized chart components
+const ChartCard = React.memo(({ title, children }: { title: string; children: React.ReactNode }) => (
+  <Card>
+    <CardHeader>
+      <CardTitle>{title}</CardTitle>
+    </CardHeader>
+    <CardContent className="h-[300px] w-full">
+      <Suspense fallback={<div className="h-full w-full flex items-center justify-center">Loading chart...</div>}>
+        {children}
+      </Suspense>
+    </CardContent>
+  </Card>
+));
+
+// Memoized progress bar component
+const ProgressBar = React.memo(({ label, value, total, unit }: { label: string; value: number; total: number; unit: string }) => (
+  <div>
+    <div className="flex justify-between text-sm mb-2">
+      <span className="truncate">{label}</span>
+      <span>{value} {unit}</span>
+    </div>
+    <Progress 
+      value={Math.min((value / total) * 100, 100)} 
+      className="h-2"
+    />
+  </div>
+));
+
 const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
   const [activeTab, setActiveTab] = useState<TabType>(TABS.OVERVIEW);
 
@@ -43,137 +73,234 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
     );
   }
 
-  // Server-specific analytics
-  const serverAnalytics = useMemo(() => {
-    const serverGroups = _.groupBy(data, 'IP');
+  // Combined data processing for better performance
+  const analytics = useMemo(() => {
+    // Create maps for efficient lookups
+    const sourceMap = new Map();
+    const serviceMap = new Map();
+    const targetMap = new Map();
+    const timeMap = new Map();
+    const ipMap = new Map();
+    const relationMap = new Map();
+
+    // Single pass through data
+    data.forEach(row => {
+      // Sources
+      const sourceKey = row.Source || 'Unknown';
+      if (!sourceMap.has(sourceKey)) {
+        sourceMap.set(sourceKey, { count: 0, totalFreq: 0 });
+      }
+      const sourceData = sourceMap.get(sourceKey);
+      sourceData.count++;
+      sourceData.totalFreq += row.freq;
+
+      // Services
+      const serviceKey = row.Service || 'Unknown';
+      if (!serviceMap.has(serviceKey)) {
+        serviceMap.set(serviceKey, { count: 0 });
+      }
+      serviceMap.get(serviceKey).count++;
+
+      // Targets
+      const targetKey = row.Target || 'Unknown';
+      if (!targetMap.has(targetKey)) {
+        targetMap.set(targetKey, { frequency: 0 });
+      }
+      targetMap.get(targetKey).frequency += row.freq;
+
+      // Time patterns
+      if (!timeMap.has(row.Time)) {
+        timeMap.set(row.Time, {
+          timePattern: row.Time,
+          count: 0,
+          totalFreq: 0,
+          sources: new Set(),
+          targets: new Set()
+        });
+      }
+      const timeData = timeMap.get(row.Time);
+      timeData.count++;
+      timeData.totalFreq += row.freq;
+      timeData.sources.add(row.Source);
+      timeData.targets.add(row.Target);
+
+      // IP distribution
+      const ipKey = row.IP;
+      if (!ipMap.has(ipKey)) {
+        ipMap.set(ipKey, {
+          ip: ipKey,
+          count: 0,
+          totalFreq: 0,
+          hostnames: new Set(),
+          services: new Set(),
+          targets: new Set()
+        });
+      }
+      const ipData = ipMap.get(ipKey);
+      ipData.count++;
+      ipData.totalFreq += row.freq;
+      if (row['Source Name']) ipData.hostnames.add(row['Source Name']);
+      ipData.services.add(row.Service);
+      ipData.targets.add(row.Target);
+
+      // Source-Target relationships
+      const relationKey = `${sourceKey}->${targetKey}`;
+      if (!relationMap.has(relationKey)) {
+        relationMap.set(relationKey, { strength: 0 });
+      }
+      relationMap.get(relationKey).strength += row.freq;
+    });
+
+    // Process the collected data
+    const total = data.length;
     
-    return Object.entries(serverGroups).map(([ip, entries]) => {
-      const hostnames = new Set(entries.map(e => e['Source Name']));
-      const services = new Set(entries.map(e => e.Service));
-      const targets = new Set(entries.map(e => e.Target));
-      const totalEvents = _.sumBy(entries, 'freq');
-      
-      return {
-        ip,
-        hostnames: Array.from(hostnames).filter(Boolean),
-        services: Array.from(services),
-        targets: Array.from(targets),
-        totalEvents,
-        uniqueServices: services.size,
-        uniqueTargets: targets.size,
-        avgEventsPerTarget: Math.round(totalEvents / targets.size)
-      };
-    }).sort((a, b) => b.totalEvents - a.totalEvents);
+    return {
+      topSources: Array.from(sourceMap.entries())
+        .map(([source, data]) => ({
+          source,
+          ...data
+        }))
+        .sort((a, b) => b.totalFreq - a.totalFreq)
+        .slice(0, 5),
+
+      serviceStats: Array.from(serviceMap.entries())
+        .map(([service, data]) => ({
+          service,
+          count: data.count,
+          percentage: Number(((data.count / total) * 100).toFixed(2))
+        }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5),
+
+      targetFrequency: Array.from(targetMap.entries())
+        .map(([target, data]) => ({
+          target: target.length > 15 ? target.slice(0, 15) + '...' : target,
+          ...data
+        }))
+        .sort((a, b) => b.frequency - a.frequency)
+        .slice(0, 5),
+
+      timePatternAnalysis: Array.from(timeMap.entries())
+        .map(([_, data]) => ({
+          ...data,
+          sources: data.sources.size,
+          targets: data.targets.size
+        }))
+        .sort((a, b) => b.totalFreq - a.totalFreq)
+        .slice(0, 8),
+
+      ipDistribution: Array.from(ipMap.entries())
+        .map(([_, data]) => ({
+          ...data,
+          hostnames: Array.from(data.hostnames),
+          services: Array.from(data.services),
+          targets: Array.from(data.targets),
+          uniqueServices: data.services.size,
+          uniqueTargets: data.targets.size,
+          avgEventsPerTarget: Math.round(data.totalFreq / data.targets.size)
+        }))
+        .sort((a, b) => b.totalFreq - a.totalFreq)
+        .slice(0, 5),
+
+      relationshipStrength: Array.from(relationMap.entries())
+        .map(([relation, data]) => ({
+          relation: relation.length > 20 ? relation.slice(0, 20) + '...' : relation,
+          ...data
+        }))
+        .sort((a, b) => b.strength - a.strength)
+        .slice(0, 5)
+    };
   }, [data]);
 
-  // 1. Top Sources by Activity
-  const topSources = useMemo(() => {
-    const sourceGroups = _.groupBy(data, 'Source');
-    return Object.entries(sourceGroups)
-      .map(([source, entries]) => ({
-        source,
-        count: entries.length,
-        totalFreq: _.sumBy(entries, 'freq')
-      }))
-      .sort((a, b) => b.totalFreq - a.totalFreq)
-      .slice(0, 5);
-  }, [data]);
+  // Memoized overview component
+  const Overview = React.memo(() => {
+    const maxSourceFreq = analytics.topSources[0]?.totalFreq || 1;
+    const maxIpFreq = analytics.ipDistribution[0]?.totalFreq || 1;
 
-  // Time Pattern Analysis
-  const timePatternAnalysis = useMemo(() => {
-    const timeGroups = _.groupBy(data, row => row.Time);
-    return Object.entries(timeGroups)
-      .map(([timePattern, entries]) => ({
-        timePattern,
-        count: entries.length,
-        totalFreq: _.sumBy(entries, 'freq'),
-        sources: new Set(entries.map(e => e.Source)).size,
-        targets: new Set(entries.map(e => e.Target)).size
-      }))
-      .sort((a, b) => b.totalFreq - a.totalFreq)
-      .slice(0, 8);  // Show top 8 time patterns
-  }, [data]);
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Top Sources by Activity</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {analytics.topSources.map((source, index) => (
+                <ProgressBar
+                  key={index}
+                  label={source.source}
+                  value={source.totalFreq}
+                  total={maxSourceFreq}
+                  unit="events"
+                />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
-  // 3. Service Distribution
-  const serviceStats = useMemo(() => {
-    const serviceGroups = _.groupBy(data, 'Service');
-    const total = data.length || 1; // Prevent division by zero
-    return Object.entries(serviceGroups)
-      .map(([service, entries]) => ({
-        service: service || 'Unknown',
-        count: entries.length,
-        percentage: (entries.length / total) * 100
-      }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-  }, [data]);
+        <ChartCard title="Common Time Patterns">
+          <Suspense fallback={<div>Loading chart...</div>}>
+            <BarChartComponent data={analytics.timePatternAnalysis} type="time" />
+          </Suspense>
+        </ChartCard>
 
-  // 4. Target Frequency Analysis
-  const targetFrequency = useMemo(() => {
-    const targetGroups = _.groupBy(data, 'Target');
-    return Object.entries(targetGroups)
-      .map(([target, entries]) => ({
-        target: (target || 'Unknown').length > 15 ? 
-          (target || 'Unknown').slice(0, 15) + '...' : 
-          target || 'Unknown',
-        frequency: _.sumBy(entries, 'freq')
-      }))
-      .sort((a, b) => b.frequency - a.frequency)
-      .slice(0, 5);
-  }, [data]);
+        <Card>
+          <CardHeader>
+            <CardTitle>Top Services</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {analytics.serviceStats.map((service, index) => (
+                <ProgressBar
+                  key={index}
+                  label={service.service}
+                  value={service.percentage}
+                  total={100}
+                  unit="%"
+                />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
-  // 5. IP Location Distribution
-  const ipDistribution = useMemo(() => {
-    const ipGroups = _.groupBy(data, 'IP');
-    return Object.entries(ipGroups)
-      .map(([ip, entries]) => ({
-        ip: ip || 'Unknown',
-        count: entries.length,
-        totalFreq: _.sumBy(entries, 'freq')
-      }))
-      .sort((a, b) => b.totalFreq - a.totalFreq)
-      .slice(0, 5);
-  }, [data]);
+        <ChartCard title="Most Targeted Systems">
+          <Suspense fallback={<div>Loading chart...</div>}>
+            <BarChartComponent data={analytics.targetFrequency} type="target" />
+          </Suspense>
+        </ChartCard>
 
-  // 6. Source-Target Relationship Strength
-  const relationshipStrength = useMemo(() => {
-    const relationships = _.groupBy(data, row => `${row.Source || 'Unknown'}->${row.Target || 'Unknown'}`);
-    return Object.entries(relationships)
-      .map(([relation, entries]) => ({
-        relation: relation.length > 20 ? relation.slice(0, 20) + '...' : relation,
-        strength: _.sumBy(entries, 'freq')
-      }))
-      .sort((a, b) => b.strength - a.strength)
-      .slice(0, 5);
-  }, [data]);
+        <Card>
+          <CardHeader>
+            <CardTitle>Top Source IPs</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {analytics.ipDistribution.map((ip, index) => (
+                <ProgressBar
+                  key={index}
+                  label={ip.ip}
+                  value={ip.totalFreq}
+                  total={maxIpFreq}
+                  unit="events"
+                />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
-  // Get max values for progress bars
-  const maxSourceFreq = topSources[0]?.totalFreq || 1;
-  const maxIpFreq = ipDistribution[0]?.totalFreq || 1;
+        <ChartCard title="Strongest Source-Target Relations">
+          <Suspense fallback={<div>Loading chart...</div>}>
+            <BarChartComponent data={analytics.relationshipStrength} type="relation" />
+          </Suspense>
+        </ChartCard>
+      </div>
+    );
+  });
 
-  // Tab navigation
-  const renderTabs = () => (
-    <div className="flex space-x-4 mb-4 border-b">
-      {Object.values(TABS).map((tab) => (
-        <button
-          key={tab}
-          onClick={() => setActiveTab(tab)}
-          className={`px-4 py-2 font-medium ${
-            activeTab === tab
-              ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          {tab}
-        </button>
-      ))}
-    </div>
-  );
-
-  // Server Analysis View
-  const renderServerAnalysis = () => (
+  // Memoized server analysis component
+  const ServerAnalysis = React.memo(() => (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      {serverAnalytics.map((server) => (
+      {analytics.ipDistribution.map((server) => (
         <Card key={server.ip}>
           <CardHeader>
             <CardTitle className="text-lg">
@@ -187,16 +314,12 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span>Total Events</span>
-                  <span>{server.totalEvents}</span>
-                </div>
-                <Progress 
-                  value={Math.min((server.totalEvents / serverAnalytics[0].totalEvents) * 100, 100)} 
-                  className="h-2"
-                />
-              </div>
+              <ProgressBar
+                label="Total Events"
+                value={server.totalFreq}
+                total={analytics.ipDistribution[0].totalFreq}
+                unit="events"
+              />
               
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div className="bg-gray-50 p-2 rounded">
@@ -225,212 +348,31 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
         </Card>
       ))}
     </div>
-  );
+  ));
 
-  // Overview Dashboard
-  const renderOverview = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {/* 1. Top Sources by Activity */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Top Sources by Activity</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {topSources.map((source, index) => (
-              <div key={index}>
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="truncate">{source.source || 'Unknown'}</span>
-                  <span>{source.totalFreq} events</span>
-                </div>
-                <Progress 
-                  value={Math.min((source.totalFreq / maxSourceFreq) * 100, 100)} 
-                  className="h-2"
-                />
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Time Pattern Analysis */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Common Time Patterns</CardTitle>
-        </CardHeader>
-        <CardContent className="h-[300px] w-full">
-          <ResponsiveContainer width="100%" height="100%" className="w-full">
-            <BarChart
-              data={timePatternAnalysis}
-              layout="vertical"
-              margin={{ left: 100, right: 10, top: 5, bottom: 5 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={true} />
-              <XAxis 
-                type="number" 
-                padding={{ left: 0, right: 0 }} 
-                domain={[0, 'dataMax']}
-                tickCount={5}
-              />
-              <YAxis
-                dataKey="timePattern"
-                type="category"
-                tick={{ fontSize: 11 }}
-                width={90}
-              />
-              <Tooltip
-                content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
-                    const data = payload[0].payload;
-                    return (
-                      <div className="bg-white border p-2 shadow-md rounded">
-                        <p className="font-semibold">{data.timePattern}</p>
-                        <p>Total Events: {data.totalFreq}</p>
-                        <p>Unique Sources: {data.sources}</p>
-                        <p>Unique Targets: {data.targets}</p>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
-              <Bar
-                dataKey="totalFreq"
-                name="Frequency"
-                fill="#8884d8"
-                barSize={25}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-
-      {/* 3. Service Distribution */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Top Services</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {serviceStats.map((service, index) => (
-              <div key={index}>
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="truncate">{service.service}</span>
-                  <span>{service.percentage.toFixed(1)}%</span>
-                </div>
-                <Progress 
-                  value={Math.min(service.percentage, 100)} 
-                  className="h-2"
-                />
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 4. Target Frequency */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Most Targeted Systems</CardTitle>
-        </CardHeader>
-        <CardContent className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={targetFrequency}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="target" 
-                tick={{ fontSize: 12 }}
-                interval={0}
-              />
-              <YAxis />
-              <Tooltip />
-              <Bar 
-                dataKey="frequency" 
-                fill="#82ca9d"
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-
-      {/* 5. IP Distribution */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Top Source IPs</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {ipDistribution.map((ip, index) => (
-              <div key={index}>
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="truncate">{ip.ip}</span>
-                  <span>{ip.totalFreq} events</span>
-                </div>
-                <Progress 
-                  value={Math.min((ip.totalFreq / maxIpFreq) * 100, 100)} 
-                  className="h-2"
-                />
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 6. Source-Target Relationships */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Strongest Source-Target Relations</CardTitle>
-        </CardHeader>
-        <CardContent className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart 
-              data={relationshipStrength}
-              layout="vertical"
-              margin={{ left: 100, right: 10, top: 5, bottom: 5 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={true} />
-              <XAxis 
-                type="number" 
-                padding={{ left: 0, right: 0 }}
-                domain={[0, 'dataMax']}
-                tickCount={5}
-              />
-              <YAxis 
-                dataKey="relation" 
-                type="category"
-                width={90}
-                tick={{ fontSize: 11 }}
-              />
-              <Tooltip 
-                content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
-                    const data = payload[0].payload;
-                    return (
-                      <div className="bg-white border p-2 shadow-md rounded">
-                        <p className="font-semibold">{data.relation}</p>
-                        <p>Events: {data.strength}</p>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
-              <Bar 
-                dataKey="strength" 
-                fill="#8884d8"
-                barSize={25}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+  // Tab navigation
+  const renderTabs = () => (
+    <div className="flex space-x-4 mb-4 border-b">
+      {Object.values(TABS).map((tab) => (
+        <button
+          key={tab}
+          onClick={() => setActiveTab(tab)}
+          className={`px-4 py-2 font-medium ${
+            activeTab === tab
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          {tab}
+        </button>
+      ))}
     </div>
   );
 
   return (
     <div className="space-y-4">
       {renderTabs()}
-      {activeTab === TABS.SERVER_ANALYSIS ? renderServerAnalysis() : renderOverview()}
+      {activeTab === TABS.SERVER_ANALYSIS ? <ServerAnalysis /> : <Overview />}
     </div>
   );
 };

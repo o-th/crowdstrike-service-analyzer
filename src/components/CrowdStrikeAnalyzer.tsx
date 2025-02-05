@@ -1,13 +1,16 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, lazy, Suspense } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
 import { Input } from './ui/input';
 import { Select } from './ui/select';
 import Papa from 'papaparse';
 import _ from 'lodash';
-import { Upload, Download, Check, Search, ArrowUpDown, RotateCcw, Info, X } from 'lucide-react';
+import { Upload, Download, Check, Search, RotateCcw, Info, X } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
-import CrowdStrikeDashboard from './CrowdStrikeDashboard';
+import VirtualizedTable from './VirtualizedTable.tsx';
+
+// Lazy load the dashboard component
+const CrowdStrikeDashboard = lazy(() => import('./CrowdStrikeDashboard'));
 
 interface CrowdStrikeRow {
   Timestamp: string;
@@ -42,7 +45,6 @@ interface DateRange {
 const CrowdStrikeAnalyzer: React.FC = () => {
   const [results, setResults] = useState<ProcessedRow[] | null>(null);
   const [showSelector, setShowSelector] = useState(true);
-  const [showAllResults, setShowAllResults] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,59 +81,100 @@ const CrowdStrikeAnalyzer: React.FC = () => {
     }) + ' PST';
   };
 
-  const processData = (data: CrowdStrikeRow[], dateRange?: DateRange): ProcessedRow[] => {
-    try {
-      // Convert timestamp strings to Date objects and filter by date range if provided
-      let processedData = data.map(row => ({
-        ...row,
-        Timestamp: new Date(row.Timestamp),
-        time_group: new Date(row.Timestamp).toLocaleString('en-US', {
-          timeZone: 'America/Los_Angeles',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false
-        })
-      }));
+  // Memoize the data processing function
+  const processData = useMemo(() => {
+    return (data: CrowdStrikeRow[], dateRange?: DateRange): ProcessedRow[] => {
+      try {
+        // Convert timestamp strings to Date objects and filter by date range if provided
+        const processedData = data.map(row => ({
+          ...row,
+          Timestamp: new Date(row.Timestamp),
+          time_group: new Date(row.Timestamp).toLocaleString('en-US', {
+            timeZone: 'America/Los_Angeles',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+          })
+        }));
 
-      // Filter by date range if provided
-      if (dateRange?.startDate && dateRange?.endDate) {
-        const startDate = new Date(dateRange.startDate);
-        const endDate = new Date(dateRange.endDate);
-        endDate.setHours(23, 59, 59, 999); // Include the entire end date
+        // Filter by date range if provided
+        const filteredData = dateRange?.startDate && dateRange?.endDate
+          ? processedData.filter(row => {
+              const startDate = new Date(dateRange.startDate);
+              const endDate = new Date(dateRange.endDate);
+              endDate.setHours(23, 59, 59, 999); // Include the entire end date
+              return row.Timestamp >= startDate && row.Timestamp <= endDate;
+            })
+          : processedData;
 
-        processedData = processedData.filter(row => {
-          const timestamp = row.Timestamp;
-          return timestamp >= startDate && timestamp <= endDate;
+        // Sort by timestamp
+        const sortedData = _.sortBy(filteredData, 'Timestamp');
+
+        // Group by relevant columns
+        const grouped = _.groupBy(sortedData, row => 
+          `${row.Source}|${row['Source Name']}|${row.IP}|${row.Service}|${row.Target}|${row.time_group}`
+        );
+
+        // Create summary with counts and time info
+        const frequencyData = Object.entries(grouped).map(([key, group]) => {
+          const [Source, SourceName, IP, Service, Target] = key.split('|');
+          return {
+            Source,
+            'Source Name': SourceName,
+            IP,
+            Service,
+            Target,
+            Time: convertToPST(group[0].Timestamp.toISOString()),
+            freq: group.length
+          };
         });
+
+        return _.orderBy(frequencyData, ['Source', 'freq'], ['asc', 'desc']);
+      } catch (err) {
+        throw new Error(`Data processing failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      }
+    };
+  }, []);
+
+  // Memoize the filtering function
+  const filterResults = useMemo(() => {
+    return (data: ProcessedRow[]) => {
+      let filtered = data;
+      
+      // Apply source filter
+      if (selectedSource) {
+        filtered = filtered.filter(row => row.IP === selectedSource);
       }
 
-      // Sort by timestamp
-      const sortedData = _.sortBy(processedData, 'Timestamp');
+      // Apply search filter
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        filtered = filtered.filter(row => 
+          row.Source.toLowerCase().includes(searchLower) ||
+          row.Target.toLowerCase().includes(searchLower) ||
+          row['Source Name'].toLowerCase().includes(searchLower) ||
+          row.IP.toLowerCase().includes(searchLower) ||
+          row.Service.toLowerCase().includes(searchLower)
+        );
+      }
 
-      // Group by relevant columns
-      const grouped = _.groupBy(sortedData, row => 
-        `${row.Source}|${row['Source Name']}|${row.IP}|${row.Service}|${row.Target}|${row.time_group}`
-      );
+      return filtered;
+    };
+  }, [selectedSource, searchTerm]);
 
-      // Create summary with counts and time info
-      const frequencyData = Object.entries(grouped).map(([key, group]) => {
-        const [Source, SourceName, IP, Service, Target] = key.split('|');
-        return {
-          Source,
-          'Source Name': SourceName,
-          IP,
-          Service,
-          Target,
-          Time: convertToPST(group[0].Timestamp.toISOString()),
-          freq: group.length
-        };
-      });
+  // Memoize the sorting function
+  const sortResults = useMemo(() => {
+    return (data: ProcessedRow[]) => {
+      return _.orderBy(data, [sortConfig.key], [sortConfig.direction]);
+    };
+  }, [sortConfig]);
 
-      return _.orderBy(frequencyData, ['Source', 'freq'], ['asc', 'desc']);
-    } catch (err) {
-      throw new Error(`Data processing failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    }
-  };
+  // Combine filtering and sorting with memoization
+  const filteredAndSortedResults = useMemo(() => {
+    if (!results) return [];
+    const filtered = filterResults(results);
+    return sortResults(filtered);
+  }, [results, filterResults, sortResults]);
 
   // Memoized filtered and sorted results
   const uniqueSources = useMemo(() => {
@@ -164,31 +207,6 @@ const CrowdStrikeAnalyzer: React.FC = () => {
       })
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [results]);
-
-  const filteredAndSortedResults = useMemo(() => {
-    if (!results) return [];
-
-    let filtered = results;
-    
-    // Apply source filter
-    if (selectedSource) {
-      filtered = filtered.filter(row => row.IP === selectedSource);
-    }
-
-    // Apply search filter
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(row => 
-        row.Source.toLowerCase().includes(searchLower) ||
-        row.Target.toLowerCase().includes(searchLower) ||
-        row['Source Name'].toLowerCase().includes(searchLower) ||
-        row.IP.toLowerCase().includes(searchLower) ||
-        row.Service.toLowerCase().includes(searchLower)
-      );
-    }
-
-    return _.orderBy(filtered, [sortConfig.key], [sortConfig.direction]);
-  }, [results, searchTerm, selectedSource, sortConfig]);
 
   const handleSort = (key: keyof ProcessedRow) => {
     setSortConfig(current => ({
@@ -525,9 +543,11 @@ const CrowdStrikeAnalyzer: React.FC = () => {
                     </Select>
                   </div>
                   <Popover>
-                    <PopoverTrigger>
-                      <button
-                        className={`p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md ${
+                    <PopoverTrigger asChild>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        className={`p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md cursor-pointer ${
                           dateRange.startDate || dateRange.endDate ? 'bg-blue-50 text-blue-600' : ''
                         }`}
                         title="Date range filter"
@@ -538,7 +558,7 @@ const CrowdStrikeAnalyzer: React.FC = () => {
                           <line x1="8" y1="2" x2="8" y2="6"></line>
                           <line x1="3" y1="10" x2="21" y2="10"></line>
                         </svg>
-                      </button>
+                      </div>
                     </PopoverTrigger>
                     <PopoverContent className="w-80">
                       <div className="p-4 space-y-4">
@@ -605,68 +625,25 @@ const CrowdStrikeAnalyzer: React.FC = () => {
                 </Alert>
               )}
 
-              {/* Results Table with Horizontal and Vertical Scroll */}
-              <div className="overflow-x-auto -mx-6">
-                <div className="inline-block min-w-full align-middle px-6">
-                  <div className="max-h-[400px] overflow-y-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="sticky top-0 bg-gray-50 z-10">
-                        <tr>
-                          {Object.keys(results[0]).map((key) => (
-                            <th 
-                              key={key}
-                              className="p-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap"
-                            >
-                              <button 
-                                onClick={() => handleSort(key as keyof ProcessedRow)}
-                                className="flex items-center gap-1 hover:text-gray-700"
-                              >
-                                {key === 'Time' ? 'Time (PST)' : key}
-                                <ArrowUpDown className="h-4 w-4" />
-                              </button>
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {(showAllResults ? filteredAndSortedResults : filteredAndSortedResults.slice(0, 10)).map((row, index) => (
-                          <tr key={index} className="hover:bg-gray-50">
-                            {Object.values(row).map((value, cellIndex) => (
-                              <td 
-                                key={cellIndex}
-                                className="p-2 text-sm text-gray-500 whitespace-nowrap"
-                              >
-                                {value.toString()}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Show All Results Button */}
-              <div className="flex justify-center mt-4">
-                <button
-                  onClick={() => setShowAllResults(!showAllResults)}
-                  className="px-4 py-2 text-sm font-medium text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50"
-                >
-                  {showAllResults ? 'Show Less' : `Show All (${filteredAndSortedResults.length} Results)`}
-                </button>
-              </div>
+              {/* Results Table with Virtualization */}
+              <VirtualizedTable 
+                results={results} 
+                filteredAndSortedResults={filteredAndSortedResults} 
+                handleSort={handleSort} 
+              />
             </div>
           )}
 
-          {/* Analytics Dashboard */}
+          {/* Analytics Dashboard with Suspense */}
           {results && (
             <div className={`
               mt-8 transition-all duration-300 ease-in-out
               ${showResults ? 'opacity-100 transform scale-100' : 'opacity-0 transform scale-95'}
             `}>
               <h3 className="text-lg font-semibold mb-4">Analytics Dashboard</h3>
-              <CrowdStrikeDashboard data={filteredAndSortedResults} />
+              <Suspense fallback={<div className="text-center py-4">Loading dashboard...</div>}>
+                <CrowdStrikeDashboard data={filteredAndSortedResults} />
+              </Suspense>
             </div>
           )}
         </div>
