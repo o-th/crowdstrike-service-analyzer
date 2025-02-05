@@ -42,6 +42,7 @@ interface DateRange {
 const CrowdStrikeAnalyzer: React.FC = () => {
   const [results, setResults] = useState<ProcessedRow[] | null>(null);
   const [showSelector, setShowSelector] = useState(true);
+  const [showAllResults, setShowAllResults] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -628,7 +629,7 @@ const CrowdStrikeAnalyzer: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredAndSortedResults.map((row, index) => (
+                        {(showAllResults ? filteredAndSortedResults : filteredAndSortedResults.slice(0, 10)).map((row, index) => (
                           <tr key={index} className="hover:bg-gray-50">
                             {Object.values(row).map((value, cellIndex) => (
                               <td 
@@ -644,6 +645,16 @@ const CrowdStrikeAnalyzer: React.FC = () => {
                     </table>
                   </div>
                 </div>
+              </div>
+              
+              {/* Show All Results Button */}
+              <div className="flex justify-center mt-4">
+                <button
+                  onClick={() => setShowAllResults(!showAllResults)}
+                  className="px-4 py-2 text-sm font-medium text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50"
+                >
+                  {showAllResults ? 'Show Less' : `Show All (${filteredAndSortedResults.length} Results)`}
+                </button>
               </div>
             </div>
           )}
