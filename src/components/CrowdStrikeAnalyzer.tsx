@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useMemo, useEffect, lazy, Suspense, useCallback } from 'react';
+import { initDB, saveData, loadData, clearData } from '../services/indexedDBService';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
 import { Input } from './ui/input';
@@ -219,63 +220,75 @@ const CrowdStrikeAnalyzer: React.FC = () => {
     }));
   };
 
-  // Load persisted data on component mount
+  // Initialize IndexedDB when component mounts
   useEffect(() => {
-    const persistedData = localStorage.getItem('crowdstrike_analyzer_data');
-    if (persistedData) {
-      const {
-        rawData,
-        results,
-        searchTerm,
-        selectedSource,
-        dateRange,
-        dateConstraints,
-        currentFile
-      } = JSON.parse(persistedData);
-
-      if (rawData && rawData.length > 0) {
-        setRawData(rawData);
-        setResults(results);
-        setSearchTerm(searchTerm || '');
-        setSelectedSource(selectedSource || '');
-        setDateRange(dateRange || { startDate: '', endDate: '' });
-        setDateConstraints(dateConstraints || { minDate: '', maxDate: '' });
-        setCurrentFile(currentFile || '');
-        setShowSelector(false);
-        setShowResults(true);
-      }
-    }
+    initDB().catch(error => {
+      setError(`Failed to initialize database: ${error.message}`);
+    });
   }, []);
 
-  // Save data to localStorage when relevant states change
+  // Load persisted data on component mount
   useEffect(() => {
-    if (rawData.length > 0) {
-      const dataToStore = {
-        rawData,
-        results,
-        searchTerm,
-        selectedSource,
-        dateRange,
-        dateConstraints,
-        currentFile
-      };
-      localStorage.setItem('crowdstrike_analyzer_data', JSON.stringify(dataToStore));
-    }
+    const loadPersistedData = async () => {
+      try {
+        const persistedData = await loadData();
+        if (persistedData && persistedData.rawData.length > 0) {
+          setRawData(persistedData.rawData);
+          setResults(persistedData.results);
+          setSearchTerm(persistedData.searchTerm || '');
+          setSelectedSource(persistedData.selectedSource || '');
+          setDateRange(persistedData.dateRange || { startDate: '', endDate: '' });
+          setDateConstraints(persistedData.dateConstraints || { minDate: '', maxDate: '' });
+          setCurrentFile(persistedData.currentFile || '');
+          setShowSelector(false);
+          setShowResults(true);
+        }
+      } catch (error) {
+        setError(`Failed to load data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    };
+    loadPersistedData();
+  }, []);
+
+  // Save data to IndexedDB when relevant states change
+  useEffect(() => {
+    const persistData = async () => {
+      if (rawData.length > 0) {
+        try {
+          await saveData({
+            rawData,
+            results,
+            searchTerm,
+            selectedSource,
+            dateRange,
+            dateConstraints,
+            currentFile
+          });
+        } catch (error) {
+          setError(`Failed to save data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+    };
+    persistData();
   }, [rawData, results, searchTerm, selectedSource, dateRange, dateConstraints, currentFile]);
 
-  const resetView = () => {
-    setResults(null);
-    setShowResults(false);
-    setTimeout(() => {
-      setShowSelector(true);
-    }, 300);
-    setCurrentFile('');
-    setRawData([]);
-    setSearchTerm('');
-    setSelectedSource('');
-    setDateRange({ startDate: '', endDate: '' });
-    // Clear localStorage when view is reset
-    localStorage.removeItem('crowdstrike_analyzer_data');
+  const resetView = async () => {
+    try {
+      setResults(null);
+      setShowResults(false);
+      setTimeout(() => {
+        setShowSelector(true);
+      }, 300);
+      setCurrentFile('');
+      setRawData([]);
+      setSearchTerm('');
+      setSelectedSource('');
+      setDateRange({ startDate: '', endDate: '' });
+      // Clear IndexedDB when view is reset
+      await clearData();
+    } catch (error) {
+      setError(`Failed to clear data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   };
 
   const processFile = (file: File) => {
