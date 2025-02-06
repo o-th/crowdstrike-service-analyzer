@@ -446,7 +446,7 @@ const CrowdStrikeAnalyzer: React.FC = () => {
                   <h4 className="font-medium">About</h4>
                 </div>
                 <p className="text-sm text-gray-600">
-                A visualization tool for analyzing CrowdStrike "On-Prem Service Access" data. Upload your CSV export to explore access patterns, track frequencies, and map relationships over time. All data processing occurs client-side in your browser.
+                A visualization tool for analyzing CrowdStrike "On-Prem Service Access" data. Upload your CSV export to explore access patterns, track frequencies, and map relationships over time. All data processing occurs client-side in your browser. View the source code on <a href="https://github.com/o-th/crowdstrike-service-analyzer" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">GitHub</a>.
                 </p>
               </div>
               
