@@ -411,10 +411,10 @@ const CrowdStrikeAnalyzer: React.FC = () => {
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader className="pb-0 pt-2 px-2">
-        <div className="flex flex-row items-center justify-between">
-          <CardTitle>CrowdStrike Service Access Analyzer</CardTitle>
+    <div className="space-y-4">
+      <div className="flex flex-row items-center justify-between">
+        <h1 className="text-2xl font-bold">CrowdStrike Service Access Analyzer</h1>
+        {results && (
           <div className="flex items-center gap-2">
             {results && (
               <>
@@ -429,9 +429,10 @@ const CrowdStrikeAnalyzer: React.FC = () => {
               </>
             )}
           </div>
-        </div>
-      </CardHeader>
-      <CardContent className="pt-4">
+        )}
+      </div>
+      <Card className="w-full">
+        <CardContent className="pt-4">
         <div className="space-y-2">
           {/* Info Section */}
           <div className={`
@@ -672,6 +673,7 @@ const CrowdStrikeAnalyzer: React.FC = () => {
         </div>
       </CardContent>
     </Card>
+    </div>
   );
 };
 
