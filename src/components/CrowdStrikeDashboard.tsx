@@ -1,6 +1,9 @@
 import React, { useMemo, useState, lazy, Suspense } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Progress } from './ui/progress';
+import { Button } from './ui/button';
+import { Copy } from 'lucide-react';
+import { Toast } from './ui/toast';
 import _ from 'lodash';
 
 // Lazy load the chart component
@@ -57,6 +60,7 @@ const ProgressBar = React.memo(({ label, value, total, unit }: { label: string; 
 
 const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
   const [activeTab, setActiveTab] = useState<TabType>(TABS.OVERVIEW);
+  const [showToast, setShowToast] = useState(false);
 
   // Combined data processing for better performance
   const analytics = useMemo(() => {
@@ -407,7 +411,23 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <Card>
         <CardHeader>
-          <CardTitle>Unique Sources</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle>Unique Sources</CardTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 hover:bg-gray-100 active:bg-gray-200 transition-colors"
+              onClick={() => {
+                const sourceNames = analytics.ipDistribution
+                  .map(source => source.hostnames.length > 0 ? source.hostnames[0] : source.ip)
+                  .join('\n');
+                navigator.clipboard.writeText(sourceNames);
+                setShowToast(true);
+              }}
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -443,7 +463,23 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Unique Targets</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle>Unique Targets</CardTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 hover:bg-gray-100 active:bg-gray-200 transition-colors"
+              onClick={() => {
+                const targetNames = analytics.targetFrequency
+                  .map(target => target.target)
+                  .join('\n');
+                navigator.clipboard.writeText(targetNames);
+                setShowToast(true);
+              }}
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -495,6 +531,13 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
       {activeTab === TABS.SERVER_ANALYSIS ? <ServerAnalysis /> : 
        activeTab === TABS.UNIQUE_ANALYSIS ? <UniqueAnalysis /> : 
        <Overview />}
+      {showToast && (
+        <Toast
+          message="Copied to clipboard"
+          variant="success"
+          onClose={() => setShowToast(false)}
+        />
+      )}
     </div>
   );
 };
