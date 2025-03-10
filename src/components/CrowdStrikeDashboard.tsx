@@ -411,22 +411,25 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-2">
-            <CardTitle>Unique Sources</CardTitle>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 hover:bg-gray-100 active:bg-gray-200 transition-colors"
-              onClick={() => {
-                const sourceNames = analytics.ipDistribution
-                  .map(source => source.hostnames.length > 0 ? source.hostnames[0] : source.ip)
-                  .join('\n');
-                navigator.clipboard.writeText(sourceNames);
-                setShowToast(true);
-              }}
-            >
-              <Copy className="h-4 w-4" />
-            </Button>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <CardTitle>Unique Sources</CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 hover:bg-gray-100 active:bg-gray-200 transition-colors"
+                onClick={() => {
+                  const sourceNames = analytics.ipDistribution
+                    .map(source => source.hostnames.length > 0 ? source.hostnames[0] : source.ip)
+                    .join('\n');
+                  navigator.clipboard.writeText(sourceNames);
+                  setShowToast(true);
+                }}
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="text-sm text-gray-500">Total: {analytics.ipDistribution.length}</div>
           </div>
         </CardHeader>
         <CardContent>
@@ -463,22 +466,25 @@ const CrowdStrikeDashboard: React.FC<DashboardProps> = ({ data = [] }) => {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-2">
-            <CardTitle>Unique Targets</CardTitle>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 hover:bg-gray-100 active:bg-gray-200 transition-colors"
-              onClick={() => {
-                const targetNames = analytics.targetFrequency
-                  .map(target => target.target)
-                  .join('\n');
-                navigator.clipboard.writeText(targetNames);
-                setShowToast(true);
-              }}
-            >
-              <Copy className="h-4 w-4" />
-            </Button>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <CardTitle>Unique Targets</CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 hover:bg-gray-100 active:bg-gray-200 transition-colors"
+                onClick={() => {
+                  const targetNames = analytics.targetFrequency
+                    .map(target => target.target)
+                    .join('\n');
+                  navigator.clipboard.writeText(targetNames);
+                  setShowToast(true);
+                }}
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="text-sm text-gray-500">Total: {analytics.targetFrequency.length}</div>
           </div>
         </CardHeader>
         <CardContent>
